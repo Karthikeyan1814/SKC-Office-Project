@@ -1,0 +1,101 @@
+.member-container{
+    margin-top: 13vh;
+    min-height: 200vh;
+    width: 100vw;
+    font-family: var(--font1);
+    padding: 100px;
+    font-size: small;
+}
+
+.member-hero h2 , .filldetails h1{
+    color: goldenrod;
+    font-family: var(--font1);
+}
+
+.flex-left{
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    color:var(--primary);
+}
+.flex-left img{
+    height: 60px;
+}
+.membership-item h3,
+.who-join li{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tick{
+    color: #D4AF37;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+.membership-container h2{
+    margin: 20px 0;
+    color: var(--primary);
+}
+.membership-list{
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.who-join ul{
+    list-style: none;
+    padding: 0;
+   
+}
+.membership-details ul{
+    margin: 10px 20px;
+    
+}
+
+.who-join li , .membership-details li{
+    margin: 15px 0;
+
+    font-size: 1.05rem;
+}
+.filldetails{
+    height: max-content;
+    width: 100%;
+}
+.place-center{
+    display: grid;
+    padding: 50px 200px;
+}
+.member-form{
+    background-color: var(--lite);
+    height: max-content;
+    width: 100%;
+    padding: 50px 100px;
+    font-family: var(--font2);
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    place-content: center;
+    gap: 30px;
+    border-radius: 10px;
+    box-shadow: 10px 10px 70px rgba(0, 0, 0, 0.312);
+    color: yellow;
+}
+.member-form input{
+    min-height: 30px;
+    border-radius: 3px;
+    padding: 2px 10px;
+    outline: none;
+    border: none;
+}
+@media screen and (max-width:480px) {
+    .member-container{
+        width: 100%;
+        padding: 30px;
+    }
+    .member-form{
+        padding: 20px;
+    }
+    .place-center{
+     padding:10px  0;
+    }
+}

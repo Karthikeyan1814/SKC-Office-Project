@@ -1,0 +1,125 @@
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body{
+   overflow-x:hidden;
+}
+html{
+  scroll-behavior: smooth;
+}
+:root{
+  --primary: oklch(31.963% 0.14749 308.464);
+  --lite:oklch(from var(--primary) calc(l*1.9) c h);
+  --ulite:oklch(from var(--primary) calc(l*1.89) c h);
+  --dark:oklch(from var(--primary) calc(l*.6)c h);
+--muted: oklch(from var(--primary) l calc(c * .3) h);
+
+--font1: "Google Sans", sans-serif;
+--font2: "Nunito", sans-serif;
+--font3:  "Elms Sans", sans-serif;
+--tamil1: "Baloo Thambi 2", system-ui;
+--tamil2: "Kavivanar", cursive;
+}
+.yellow-btn{
+  min-height: 40px;
+  min-width: max-content;
+  padding: 0px 30px;
+  position: relative;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font1);
+  font-weight: 500;
+  z-index: 1;
+  color: rgb(0, 0, 0);
+  cursor: pointer;
+ transition: all 0.3s ease-in-out;
+}
+.yellow-btn::before{
+  content: "";
+  inset: -2px;
+  position: absolute;
+   z-index: -1;
+   background: linear-gradient(90deg , rgb(255, 217, 0), #F3E8FF,gold);
+    animation: YellowAnimation 3s linear infinite;
+    border-radius: inherit;
+    background-size: 200% 200%;
+}
+.yellow-btn:hover{
+  transform: scale(1.03);
+}
+@keyframes YellowAnimation{
+0%{
+  background-position: 0% 50%;}
+  100%{
+    background-position: 200% 50%;
+  }
+}
+
+.red-btn{
+  min-height: 40px;
+  min-width: max-content;
+  padding: 0px 30px;
+  position: relative;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font1);
+  font-weight: 500;
+  z-index: 1;
+  color: rgb(245, 245, 245);
+  cursor: pointer;
+ transition: all 0.3s ease-in-out;
+  clip-path: polygon(0 0,
+      85% 0,
+      100% 50%,
+      100% 100%,
+      0 100%);
+      transition: all 0.3s ease;
+}
+.red-btn::before{
+  content: "";
+  inset: -2px;
+  position: absolute;
+   z-index: -1;
+   background: linear-gradient(90deg , red, #F3E8FF,red);
+    animation: YellowAnimation 3s linear infinite;
+    border-radius: inherit;
+    background-size: 200% 200%;
+    
+}
+.red-btn:hover{
+  transform: scale(1.03);
+}
+.blue-btn{
+   min-height: 40px;
+  min-width: max-content;
+  padding: 0px 30px;
+  position: relative;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font1);
+  font-weight: 500;
+  z-index: 1;
+  color: rgb(245, 245, 245);
+  cursor: pointer;
+  background-color: var(--primary);
+}
+.blue-btn::before{
+  content: "";
+  inset: -2px;
+  position: absolute;
+   z-index: -1;
+   background: linear-gradient(90deg ,var(--primary),var(--primary),var(--primary), #f3e8ff4b,var(--primary),var(--primary),var(--primary));
+    animation: YellowAnimation 3s linear infinite;
+    border-radius: inherit;
+    background-size: 200% 200%;
+    
+}
+.blue-btn:hover{
+  transform: scale(1.03);
+}
+a{
+  text-decoration: none;
+  color:inherit;
+}
