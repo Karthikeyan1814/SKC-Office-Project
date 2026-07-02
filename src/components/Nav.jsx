@@ -56,9 +56,11 @@ export default function Nav() {
 
             </ul>
 
-            <button className="yellow-btn desktop-btn">
+            <NavLink to={"/SignIn"}>
+                <button className="yellow-btn desktop-btn">
                 Sign In
             </button>
+            </NavLink>
 
         </nav>
     );
