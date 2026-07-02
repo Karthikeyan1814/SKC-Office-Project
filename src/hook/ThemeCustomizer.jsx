@@ -16,7 +16,7 @@ function ThemeCustomizer() {
     };
 
     return (
-        <div style={{position:"absolute", top:"100px"}}>
+        <div style={{marginTop:"15vh"}}>
             <h2>Choose Theme Color</h2>
 
             <input
