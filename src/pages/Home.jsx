@@ -51,7 +51,7 @@ Thank you.`);
     };
     return (
         <div className="home-container">
-           
+            <ThemeCustomizer />
             <section id="hero">
                 <section className="hero-container">
                     <div className="hero-left">

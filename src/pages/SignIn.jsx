@@ -17,7 +17,7 @@ export default function SignIn(){
                     <input type="text" name="username" id="username" placeholder="Enter Email or Mobile "  />
                     <label htmlFor="password">Password</label>
                     <input type="text" name="password" id="password" placeholder="Password" />
-                    <p className="grid1" >Note : If This is your first time signin , Please Enter the Email or Phone , And the Password as Last Four Digit with BirthYear</p>
+                    <p className="grid1">Note : If This is your first time signin , Please Enter the Email or Phone , And the Password as Last Four Digit with BirthYear</p>
                     <p className="grid1">Eg : Phone :  +91 88565225454 , Birth Year :2000 and In Become 54542000 it is ur first  time password</p>
                   <span></span>  <button className="blue-btn">Sign In</button>
                 </form>
