@@ -16,7 +16,7 @@ function ThemeCustomizer() {
     };
 
     return (
-        <>
+        <div style={{position:"absolute", top:"100px"}}>
             <h2>Choose Theme Color</h2>
 
             <input
@@ -24,7 +24,7 @@ function ThemeCustomizer() {
                 value={color}
                 onChange={changeColor}
             />
-        </>
+        </div>
     );
 }
 
