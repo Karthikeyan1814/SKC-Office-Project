@@ -7,6 +7,7 @@ import Home from './pages/Home'
 import Membership from './pages/Membership'
 import ActDetails from './pages/Actdetails'
 import SignIn from './pages/SignIn'
+import AdminRoutes from './routes/AdminRoutes'
 function App() {
  return(
 
@@ -17,6 +18,10 @@ function App() {
             <Route path="membership" element={<Membership />} />
             <Route path='actDetails' element={<ActDetails />}></Route>
             <Route path='SignIn' element={<SignIn />}></Route>
+        </Route>
+
+        <Route path='/Admin' element={<AdminRoutes></AdminRoutes>}>
+            <Route index element={<Home />}></Route>
         </Route>
     </Routes>
 

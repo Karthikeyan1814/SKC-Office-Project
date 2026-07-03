@@ -5,7 +5,7 @@
     width: 100%;
     font-family: var(--font2);
     display: grid;
-    place-content: center
+    place-content: center;
     
 }
 .signIn-layout{
@@ -46,4 +46,24 @@ border-radius: inherit;
 }
 .grid1{
     grid-column: span 2;
+}
+@media screen and (max-width:480px) {
+    .signin-container{
+        padding: 10px;
+        margin-top: 0;
+    }
+    .signIn-layout{
+        grid-template-columns: 1fr;
+    }
+    .signin-left{
+        font-size: x-small;
+        padding: 30px;
+        text-align: center;
+    }
+    .signin-left h1{
+        font-size: large;
+    }
+    .signin-right{
+        padding: 40px;
+    }
 }
