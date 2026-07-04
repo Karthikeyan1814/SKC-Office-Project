@@ -7,7 +7,7 @@
     background-color: var(--primary);
     font-family: var(--font2);
 }
-.footer1 h1 , .footer2 h1 , .footer3 h1,h2{
+.footer1 h1 , .footer2 h1 , .footer3 h1, .footer h2{
     color: gold;
 }
 .footer2 ul{
@@ -54,5 +54,6 @@
     .footer-row{
         flex-direction: column;
         text-align: center;
+        font-size: small;
     }
 }

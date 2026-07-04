@@ -1,0 +1,32 @@
+.admin-count{
+    margin-top: 12vh;
+    min-height: 20vh;
+    width: 100%;
+    
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    font-family: var(--font2);
+}
+.overbox{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    gap: 20px;
+    border-radius: 20px;
+    min-height: 100px;
+background: white;
+box-shadow:  20px 20px 30px #bebebe9c,
+             -8px -8px 80px #ffffffbe;
+}
+.overbox h1{
+    color: var(--lite);
+    font-weight: 900;
+    font-size: 60px;
+    font-family: var(--font3);
+}
+.overbox h2{
+    font-size: large;
+    color:black;
+}
