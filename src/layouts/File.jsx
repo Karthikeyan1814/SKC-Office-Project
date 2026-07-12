@@ -21,6 +21,9 @@ export default function File({ filename, filedate, link }) {
             <section className="files-box" >
                 <h2 className="files-name"> {filename}</h2>
             </section>
+            <section className="files-box ">
+                <p className="file-username">User : Karthi</p>
+            </section>
             <section className="files-box">
                 <p>{filedate}</p>
             </section>

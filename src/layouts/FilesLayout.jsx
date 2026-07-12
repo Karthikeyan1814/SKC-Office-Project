@@ -15,7 +15,8 @@ export default function FilesLayout({fileCategorie,filedetails}){
             </section>
             <hr />
             <section className="files-lay-search-cont">
-                <input type="text"  name="search" onChange={handleSeatch}/>
+                   <input type="text"  name="search" onChange={handleSeatch} placeholder="Search by User"/>
+                <input type="text"  name="search" onChange={handleSeatch} placeholder="Search by FileName"/>
                 <button> <FaSearch size={22} color="white"></FaSearch> </button>
             </section>
             <section className="files-area">

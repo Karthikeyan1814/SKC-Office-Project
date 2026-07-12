@@ -59,7 +59,7 @@ font-family: var(--font2);
     padding: 10px;
     font-family: var(--font2);
     display: grid;
-    grid-template-columns: 50px 2fr 1fr 1fr ;
+    grid-template-columns: 50px 2fr 1fr 1fr 1fr ;
     gap: 20px;
     font-style: italic;
     background-color: white;
@@ -98,4 +98,13 @@ font-family: var(--font2);
     border: none;
     background-color: yellow;
     color: black;
+}
+.file-username{
+    background-color: var(--lite);
+    width: max-content;
+    height: max-content;
+    padding: 5px 10px;
+    font-size: small;
+    color: white;
+    border-radius: 5px;
 }

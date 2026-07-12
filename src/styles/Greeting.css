@@ -1,0 +1,19 @@
+.greeting-cont{
+    background-color: white;
+    border-radius: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    padding: 30px 20px;
+                
+}
+.greeting-cont p{
+    margin-top: 10px;
+    font-family: var(--font2);
+    color: gray;
+}
+.greeting-left h1 , .greeting-right h1{
+    color: var(--primary);
+    font-family: var(--font4);
+}

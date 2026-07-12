@@ -6,6 +6,7 @@ import { HashLink } from "react-router-hash-link";
 export default function Nav() {
 
     const [open, setOpen] = useState(false);
+    const [current ,setCurrent]=useState("admin")
 
     return (
         <nav className="nav-container">
@@ -23,7 +24,7 @@ export default function Nav() {
                 {open ? <HiXMark /> : <HiBars3 />}
             </button>
 
-            <ul className={`nav-section ${open ? "active" : ""}`}>
+           {current === "client" &&  <ul className={`nav-section ${open ? "active" : ""}`}>
 
                 <Link to="/" onClick={() => setOpen(false)}>
                     <li>Home</li>
@@ -54,7 +55,43 @@ export default function Nav() {
                     Sign In
                 </button>
 
-            </ul>
+            </ul>}
+            {current === "admin" &&  <ul className={`nav-section ${open ? "active" : ""}`}>
+
+                <Link to="/" onClick={() => setOpen(false)}>
+                    <li>Gst</li>
+                </Link>
+
+                <HashLink smooth to="/#process">
+                    <li>Roc</li>
+                </HashLink>
+
+                <HashLink smooth to="/#service">
+                    <li>Tax</li>
+                </HashLink>
+
+   <NavLink to="/membership" onClick={() => setOpen(false)}>
+                    <li>Financial</li>
+                </NavLink>
+
+                <HashLink smooth to="/#contact">
+                    <li>PayRoll</li>
+                </HashLink>
+
+                <NavLink to="/membership" onClick={() => setOpen(false)}>
+                    <li>Important File</li>
+                </NavLink>
+
+
+                <li>Certificates</li>
+                <NavLink to="actDetails"><li>Compliance Notice</li></NavLink>
+                
+
+                <button className="yellow-btn mobile-btn">
+                    Sign In
+                </button>
+
+            </ul>}
 
             <NavLink to={"/SignIn"}>
                 <button className="yellow-btn desktop-btn">
