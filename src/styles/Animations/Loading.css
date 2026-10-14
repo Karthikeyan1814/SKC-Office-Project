@@ -1,0 +1,111 @@
+.page-cont{
+    min-height: 40vh;
+    display: flex;
+    flex-direction: column;
+    gap: 50px;
+    font-family: var(--font3);
+    justify-content: center;
+    align-items: center;
+}
+.loading-cont1{
+    height: 30px;
+    min-width: 100px;
+    display: flex;
+    align-content: center;
+gap: 10px;
+}
+.loading-box1{
+    height: 30px;
+    width: 10px;
+    background-color: rgb(254, 0, 0);
+    animation: Expand 1.5s  ease-in-out infinite both ;
+}
+@keyframes Expand {
+/*     
+    0%{
+        height: 0px;
+        opacity: 0;
+    }50%{
+        height: 40px;
+        opacity: 1;
+        background-color: orange;
+    }100%{
+        height: 0px;
+        opacity: 0;
+    } */
+
+    0% , 100%{
+        transform: scale(1);
+    }
+    50%{
+        transform: scale(1.3);
+        
+    }
+}
+.loading-box1:nth-child(1){animation-delay: 0.1s; background-color: lightblue;}
+.loading-box1:nth-child(2){animation-delay: 0.2s; background-color: lightcoral;}
+.loading-box1:nth-child(3){animation-delay: 0.3s; background-color: lightgray}
+.loading-box1:nth-child(4){animation-delay: 0.4s; background-color: lightgreen;}
+.loading-box1:nth-child(5){animation-delay: 0.5s; background-color: lightpink;}
+.loading-box1:nth-child(6){animation-delay: 0.6s; background-color: lightsalmon;}
+.loading-box1:nth-child(7){animation-delay: 0.7s; background-color: lightseagreen}
+.loading-box1:nth-child(8){animation-delay: 0.8s; background-color: lightyellow}
+
+.spinner-cont{
+    height: 100px;
+   width: 100px;
+    position: relative;
+    display: grid;
+    place-content:center ;
+        animation: Spin 3.5s ease-in-out infinite;
+}
+.dot{
+     position: absolute;
+    height: 30px;
+    width: 30px;
+   
+    background-color: var(--primary);
+    border-radius: 50%;
+
+}
+.dot:nth-child(1){
+    top: 35px;
+    left: 0px;
+}
+.dot:nth-child(2){
+    top: 35px;
+    right: 0px;
+}
+.dot:nth-child(3){
+    top: 0px;
+    left: 35px;
+}
+.dot:nth-child(4){
+    bottom: 0px;
+    left: 35px;
+}
+@keyframes Spin {
+    0%,100% {
+    transform: rotate(0deg);
+    width: 0;
+  }
+
+  50% {
+    transform: rotate(360deg);
+    width: 100px;
+  }
+}
+.blink{
+    animation: Blink 1.5s ease-in-out infinite;
+}
+@keyframes Blink {
+    0% , 100%{
+        opacity: 0;
+        font-weight: 100;
+    }
+    50%{
+        opacity: 1;
+        font-weight: 500;
+    }
+
+}

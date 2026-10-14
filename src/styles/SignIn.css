@@ -1,6 +1,6 @@
 .signin-container{
     min-height: 50vh;
-    margin-top: 15vh;
+    margin-top: 10vh;
     padding: 50px;
     width: 100%;
     font-family: var(--font2);
@@ -66,4 +66,12 @@ border-radius: inherit;
     .signin-right{
         padding: 40px;
     }
+}
+.sign-role-cont{
+    display: grid;
+    height: inherit;
+    width: 100%;
+    grid-template-columns: repeat(3 ,1fr);
+    gap: 10px;
+    margin: 20px 0px;
 }

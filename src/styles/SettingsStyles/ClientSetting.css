@@ -1,0 +1,167 @@
+.Client-main-layoout{
+    position: relative;
+}
+.client-setting-dash{
+    background-color: white;
+    padding: 50px;
+    border-radius: 10px;
+    box-shadow: 0 18px 18px 0px rgba(0, 0, 0, 0.315);
+}
+.client-setting-dash h2{
+    font-family: var(--font2);
+    color: var(--primary);
+}
+.client-setting-dash p{
+    color: var(--lite);
+    font-family: var(--font3);
+}
+.client-setting-dash textarea{
+    min-height: 30px;
+    width:400px ;
+    border: 2px soild blue;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+/* Four-column grid for the Add Client Field form */
+.client-field-form {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px 18px;
+    align-items: center;
+}
+
+/* Keep each label aligned with its corresponding control */
+.client-field-form > label {
+    margin: 0;
+    align-self: center;
+}
+
+.client-field-form > input:not([type="checkbox"]),
+.client-field-form > select,
+.client-field-form > textarea {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+/* Options label occupies column 1; textarea occupies columns 2–4 */
+.client-field-form > .options-label {
+    grid-column: span 1;
+    align-self: start;
+    padding-top: 10px;
+}
+
+.client-field-form > .options-input {
+    grid-column: span 3;
+    resize: vertical;
+}
+
+/* Suggestions, hints, checkbox rows and submit button span all columns */
+.client-field-form > .client-field-full-width {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+
+.client-field-form .version-hint {
+    color: #b45309;
+    margin-top: -8px;
+}
+
+.client-field-form .field-suggestions {
+    padding: 12px;
+    border: 1px solid #d99b35;
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+}
+
+.client-field-form .field-suggestion-item {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.client-field-form .field-suggestion-item p {
+    margin: 6px 0;
+}
+
+.client-field-form .client-field-checkbox {
+    display: flex;
+    align-items: center;
+}
+
+.client-field-form .client-field-checkbox label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.client-field-form .client-field-checkbox input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.client-field-form .client-field-submit {
+    justify-self: start;
+    width: auto;
+    min-width: 160px;
+}
+
+.client-field-message.success {
+    color: #15803d;
+}
+
+.client-field-message.error {
+    color: #b91c1c;
+}
+
+/* Adapt the layout for smaller screens */
+@media (max-width: 900px) {
+    .client-field-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .client-field-form > .options-input {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 560px) {
+    .client-field-form {
+        grid-template-columns: 1fr;
+    }
+
+    .client-field-form > label,
+    .client-field-form > input:not([type="checkbox"]),
+    .client-field-form > select,
+    .client-field-form > textarea,
+    .client-field-form > .options-label,
+    .client-field-form > .options-input,
+    .client-field-form > .client-field-full-width {
+        grid-column: 1 / -1;
+    }
+
+    .client-field-form > .options-label {
+        padding-top: 0;
+    }
+}
+.deactivate-main-box {
+    background-color: white;
+    border: 3px solid var(--lite);
+    margin: 30px;
+    padding: 40px;
+    border-radius: 10px;
+}
+.common-table{
+    font-family: var(--font2);
+
+}
+.select-styling{
+      min-height: 30px;
+  min-width: 100px;
+  border: 2px solid var(--lite);
+  border-radius: 5px;
+  padding: 10px;
+}

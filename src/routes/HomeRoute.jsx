@@ -7,7 +7,7 @@ export default function HomeRoute(){
     return(
         <div>
             <Nav />
-             <ThemeCustomizer />
+
            <Outlet />
             <Footer></Footer>
         </div>

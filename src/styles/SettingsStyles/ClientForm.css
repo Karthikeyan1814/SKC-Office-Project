@@ -1,0 +1,40 @@
+.client-box{
+    padding: 50px 20px;
+}
+
+.client-top-buttons{
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 30px;
+    margin-right: 50px;
+   
+}
+.client-settings-cont{
+    min-height: 300px;
+    width: 100%;
+    background-color: white;
+    margin: 20px 0px;
+    border: 2px  solid var(--lite);
+    border-radius: 30px;
+    padding: 50px;
+}
+.client-settings-cont h2{
+    grid-column: span 4;
+    margin: 30px 0px;
+}
+.dynamic-form-layout{
+
+    height: max-content;
+    width: 100%;
+    grid-column: span 4;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+}
+.dynamic-form-layout-child{
+    display: grid;
+    place-content: center;
+    gap: 30px;
+    grid-template-columns: repeat(2 , 1fr);
+}
