@@ -2,11 +2,16 @@ import "../styles/Nav.css";
 import { NavLink, Link } from "react-router-dom";
 import { useState } from "react";
 import { HiBars3, HiXMark } from "react-icons/hi2";
+import { HiOutlineSwatch } from "react-icons/hi2";
 import { HashLink } from "react-router-hash-link";
-export default function Nav() {
+import { useUniversalTheme } from "../context/ThemeContext";
 
+export default function Nav() {
+    const { setIsThemeModalOpen } = useUniversalTheme();
     const [open, setOpen] = useState(false);
-    const [current ,setCurrent]=useState("admin")
+    const [current ,setCurrent]=useState("admin");
+    const role = typeof window !== "undefined" ? localStorage.getItem("skc-role") : null;
+    const isAdmin = role === "ADMIN";
 
     return (
         <nav className="nav-container">
@@ -24,80 +29,85 @@ export default function Nav() {
                 {open ? <HiXMark /> : <HiBars3 />}
             </button>
 
-           {current === "client" &&  <ul className={`nav-section ${open ? "active" : ""}`}>
+        
+
+             
+            <ul className={`nav-section ${open ? "active" : ""}`}>
 
                 <Link to="/" onClick={() => setOpen(false)}>
                     <li>Home</li>
                 </Link>
 
                 <HashLink smooth to="/#process">
-                    <li>About Us</li>
+                    <li>Process</li>
                 </HashLink>
 
                 <HashLink smooth to="/#service">
-                    <li>Services</li>
+                    <li>Service</li>
                 </HashLink>
 
                 <HashLink smooth to="/#contact">
-                    <li>Contact</li>
+                    <li>Contacts</li>
                 </HashLink>
 
+                
+
+                
+                <NavLink to="actDetails"><li>Act File</li></NavLink>
+                
+                
                 <NavLink to="/membership" onClick={() => setOpen(false)}>
                     <li>Membership</li>
                 </NavLink>
 
+                <li
+                    style={{ cursor: "pointer", color: "goldenrod", fontWeight: "700" }}
+                    onClick={() => {
+                        setOpen(false);
+                        window.dispatchEvent(new CustomEvent("open-public-booking"));
+                    }}
+                >
+                    Book Call
+                </li>
 
-                <li>Book Call</li>
-                <NavLink to="actDetails"><li>Act Details</li></NavLink>
-                
+                {isAdmin && (
+                    <li
+                        style={{ cursor: "pointer", color: "var(--gold, #f59e0b)", fontWeight: "700" }}
+                        onClick={() => {
+                            setOpen(false);
+                            setIsThemeModalOpen(true);
+                        }}
+                        className="mobile-btn"
+                    >
+                        🎨 Theme Colors (Admin)
+                    </li>
+                )}
 
-                <button className="yellow-btn mobile-btn">
-                    Sign In
-                </button>
-
-            </ul>}
-            {current === "admin" &&  <ul className={`nav-section ${open ? "active" : ""}`}>
-
-                <Link to="/" onClick={() => setOpen(false)}>
-                    <li>Gst</li>
-                </Link>
-
-                <HashLink smooth to="/#process">
-                    <li>Roc</li>
-                </HashLink>
-
-                <HashLink smooth to="/#service">
-                    <li>Tax</li>
-                </HashLink>
-
-   <NavLink to="/membership" onClick={() => setOpen(false)}>
-                    <li>Financial</li>
+                <NavLink to={"/SignIn"} onClick={() => setOpen(false)}>
+                    <button className="yellow-btn mobile-btn">
+                        Sign In
+                    </button>
                 </NavLink>
 
-                <HashLink smooth to="/#contact">
-                    <li>PayRoll</li>
-                </HashLink>
+            </ul>
 
-                <NavLink to="/membership" onClick={() => setOpen(false)}>
-                    <li>Important File</li>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                {isAdmin && (
+                    <button
+                        className="theme-nav-btn desktop-btn"
+                        onClick={() => setIsThemeModalOpen(true)}
+                        title="Universal Theme & Color Settings (Admin Only)"
+                    >
+                        <HiOutlineSwatch size={19} />
+                    </button>
+                )}
+
+                <NavLink to={"/SignIn"}>
+                    <button className="yellow-btn desktop-btn">
+                        Sign In
+                    </button>
                 </NavLink>
-
-
-                <li>Certificates</li>
-                <NavLink to="actDetails"><li>Compliance Notice</li></NavLink>
-                
-
-                <button className="yellow-btn mobile-btn">
-                    Sign In
-                </button>
-
-            </ul>}
-
-            <NavLink to={"/SignIn"}>
-                <button className="yellow-btn desktop-btn">
-                Sign In
-            </button>
-            </NavLink>
+            </div>
 
         </nav>
     );

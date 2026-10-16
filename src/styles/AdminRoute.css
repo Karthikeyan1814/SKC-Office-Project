@@ -1,12 +1,39 @@
-.admin-route-container{
-    position: relative;
-    min-height: 100vh;
-    width: 100vw;
+/* ==========================================================================
+   PORTAL LAYOUT CONTAINER - Admin, Staff, Client
+   ========================================================================== */
+
+.admin-route-container {
+  min-height: 100vh;
+  background-color: var(--page-floor, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease;
 }
-.admin-child-route{
-    margin-top: 9vh;
-    margin-left:4.8vw;
-    width: 95%;
-    padding: 10px 30px;
-    background-color: rgba(234, 232, 232, 0.745);
+
+.admin-body-layout {
+  display: flex;
+  flex: 1;
+  position: relative;
+  min-height: calc(100vh - 64px);
+}
+
+.admin-child-route {
+  margin-left: 68px;
+  flex: 1;
+  min-width: 0;
+  padding: 24px 32px;
+  background-color: var(--page-floor, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 64px);
+  transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .admin-child-route {
+    margin-left: 0;
+    padding: 16px;
+  }
 }

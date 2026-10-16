@@ -1,30 +1,31 @@
 import { useState, useEffect } from "react";
 
-export default function useCounter(target, duration = 2000) {
-
+export default function useCounter(target = 0, duration = 1000) {
     const [count, setCount] = useState(0);
 
     useEffect(() => {
+        const num = Number(target) || 0;
+        if (num <= 0) {
+            setCount(0);
+            return;
+        }
 
         let start = 0;
-
-        const increment = target / (duration / 16);
+        const stepTime = 20;
+        const totalSteps = Math.max(1, Math.floor(duration / stepTime));
+        const increment = num / totalSteps;
 
         const timer = setInterval(() => {
-
             start += increment;
-
-            if (start >= target) {
-                setCount(target);
+            if (start >= num) {
+                setCount(num);
                 clearInterval(timer);
             } else {
                 setCount(Math.floor(start));
             }
-
-        }, 16);
+        }, stepTime);
 
         return () => clearInterval(timer);
-
     }, [target, duration]);
 
     return count;

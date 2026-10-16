@@ -4,12 +4,14 @@ import './index.css'
 import App from './App.jsx'
 import { BrowserRouter } from 'react-router-dom'
 import ScrollToTop from './hook/ScrollToTop.jsx'
+import { ThemeProvider } from './context/ThemeContext.jsx'
 
 createRoot(document.getElementById('root')).render(
-
-    <BrowserRouter>
-    <ScrollToTop />
-    <App />
-    </BrowserRouter>
-  
+  <BrowserRouter>
+    <ThemeProvider>
+      <ScrollToTop />
+      <App />
+    </ThemeProvider>
+  </BrowserRouter>
 )
+

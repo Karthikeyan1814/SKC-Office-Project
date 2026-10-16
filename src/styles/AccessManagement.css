@@ -1,0 +1,600 @@
+/* ==========================================================================
+   ACCESS & ROLE MANAGEMENT - ENTERPRISE EXECUTIVE STYLING
+   ========================================================================== */
+
+.am-page-wrapper {
+  padding: 24px 28px;
+  color: #1e293b;
+  max-width: 1360px;
+  margin: 0 auto;
+  font-family: var(--font2, 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif);
+}
+
+/* ── Top Header ────────────────────────────────────────────────────────── */
+.am-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.am-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.3px;
+}
+
+.am-header-sub {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.am-btn-refresh {
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.18s ease;
+}
+
+.am-btn-refresh:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+/* ── Tab Navigation Bar ────────────────────────────────────────────────── */
+.am-tabs-bar {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1.5px solid #e2e8f0;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.am-tab-btn {
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  margin-bottom: -1.5px;
+  transition: all 0.18s ease;
+  border-radius: 6px 6px 0 0;
+}
+
+.am-tab-btn:hover {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.am-tab-btn.active-staff {
+  color: #059669;
+  border-bottom-color: #059669;
+}
+
+.am-tab-btn.active-client {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.am-tab-btn.active-admin {
+  color: #7c3aed;
+  border-bottom-color: #7c3aed;
+}
+
+.am-tab-btn.active-create {
+  color: #d97706;
+  border-bottom-color: #d97706;
+  margin-left: auto;
+}
+
+.am-tab-count {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 800;
+}
+
+.am-tab-count-alert {
+  background: #fee2e2;
+  color: #dc2626;
+  animation: amPulse 1.8s infinite;
+}
+
+@keyframes amPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.04); }
+}
+
+/* ── Toolbar & Filters ─────────────────────────────────────────────────── */
+.am-toolbar {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.am-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  transition: all 0.18s ease;
+}
+
+.am-search-box:focus-within {
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.am-search-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.am-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.am-search-clear:hover {
+  color: #475569;
+}
+
+.am-filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.am-filter-chip {
+  padding: 5px 11px;
+  border-radius: 7px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.am-filter-chip:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.am-filter-chip.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+/* ── Banner Alerts ─────────────────────────────────────────────────────── */
+.am-alert-banner {
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.am-alert-banner.warning {
+  background: #fff7ed;
+  border: 1.5px solid #fed7aa;
+}
+
+.am-alert-banner.purple {
+  background: #f5f3ff;
+  border: 1.5px solid #ddd6fe;
+}
+
+.am-alert-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.am-alert-title {
+  margin: 0 0 2px 0;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.am-alert-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ── Enterprise Data Table ─────────────────────────────────────────────── */
+.am-table-wrap {
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.am-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.am-table th {
+  padding: 10px 14px;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.am-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.am-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.am-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.am-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.am-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.am-avatar.staff {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.am-avatar.admin {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.am-user-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.am-user-meta {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* ── Badges ────────────────────────────────────────────────────────────── */
+.am-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.am-badge.active {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.am-badge.deactivated {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.am-badge.pending {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.am-badge.tag-tier {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+/* ── Compact Action Buttons ────────────────────────────────────────────── */
+.am-actions-cell {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.am-btn {
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
+}
+
+.am-btn-deactivate {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.am-btn-deactivate:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.am-btn-activate {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.am-btn-activate:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.am-btn-outline {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.am-btn-outline:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.am-btn-danger-solid {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.am-btn-danger-solid:hover {
+  background: #b91c1c;
+}
+
+.am-btn-primary {
+  background: #059669;
+  color: #ffffff;
+}
+
+.am-btn-primary:hover {
+  background: #047857;
+}
+
+.am-btn-purple {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.am-btn-purple:hover {
+  background: #6d28d9;
+}
+
+/* ── Role Creation Card & Form ─────────────────────────────────────────── */
+.am-create-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.am-role-switch {
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.am-role-tab {
+  flex: 1;
+  padding: 9px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  background: transparent;
+  color: #64748b;
+}
+
+.am-role-tab.active-staff {
+  background: #ffffff;
+  color: #059669;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.am-role-tab.active-admin {
+  background: #ffffff;
+  color: #7c3aed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.am-form-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 24px 28px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.am-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.am-form-group {
+  margin-bottom: 12px;
+}
+
+.am-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.am-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  box-sizing: border-box;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.am-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+/* ── Modal Dialogs ─────────────────────────────────────────────────────── */
+.am-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: amFadeIn 0.2s ease;
+}
+
+.am-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  max-width: 480px;
+  width: 100%;
+  padding: 26px 28px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.am-otp-input {
+  width: 100%;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  text-align: center;
+  padding: 10px;
+  border: 2px solid #cbd5e1;
+  border-radius: 10px;
+  outline: none;
+  font-family: monospace;
+  box-sizing: border-box;
+  transition: all 0.18s ease;
+}
+
+.am-otp-input:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+@keyframes amFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}

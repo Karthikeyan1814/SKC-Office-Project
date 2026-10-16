@@ -1,0 +1,244 @@
+/* ==========================================================================
+   Membership Card & Glowing Tier System
+   Silver Shimmer | Gold Radiance | Platinum Holographic Aurora
+   ========================================================================== */
+
+/* Shimmer Keyframes */
+@keyframes silverShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes goldPulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.45), 0 0 60px rgba(245, 158, 11, 0.2), inset 0 0 15px rgba(251, 191, 36, 0.2);
+    border-color: rgba(251, 191, 36, 0.85);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(245, 158, 11, 0.75), 0 0 90px rgba(245, 158, 11, 0.35), inset 0 0 25px rgba(251, 191, 36, 0.35);
+    border-color: rgba(245, 158, 11, 1);
+  }
+}
+
+@keyframes platinumHolographic {
+  0% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 35px rgba(168, 85, 247, 0.6), 0 0 70px rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    background-position: 100% 50%;
+    box-shadow: 0 0 55px rgba(236, 72, 153, 0.7), 0 0 95px rgba(168, 85, 247, 0.5);
+  }
+  100% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 35px rgba(168, 85, 247, 0.6), 0 0 70px rgba(99, 102, 241, 0.4);
+  }
+}
+
+@keyframes floatCard {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes laserSweep {
+  0% { transform: translateX(-150%) skewX(-25deg); }
+  100% { transform: translateX(250%) skewX(-25deg); }
+}
+
+/* Card Root Container */
+.skc-membership-card-wrap {
+  perspective: 1200px;
+  margin: 20px 0;
+}
+
+.skc-tier-card {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  min-height: 290px;
+  border-radius: 24px;
+  padding: 30px 32px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s;
+  box-sizing: border-box;
+}
+
+.skc-tier-card:hover {
+  transform: translateY(-4px) scale(1.01);
+}
+
+/* --- SILVER CARD --- */
+.skc-tier-card--silver {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(148, 163, 184, 0.25);
+}
+
+.skc-tier-card--silver::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(203, 213, 225, 0.05) 30%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(203, 213, 225, 0.05) 70%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: silverShimmer 6s infinite linear;
+  pointer-events: none;
+}
+
+/* --- GOLD CARD --- */
+.skc-tier-card--gold {
+  background: linear-gradient(135deg, #2a1e00 0%, #160e00 50%, #0b0700 100%);
+  border: 2px solid #f59e0b;
+  animation: goldPulseGlow 3s infinite ease-in-out;
+}
+
+.skc-tier-card--gold::before {
+  content: "";
+  position: absolute;
+  top: -50%; left: -50%; width: 200%; height: 200%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* --- PLATINUM CARD --- */
+.skc-tier-card--platinum {
+  background: linear-gradient(135deg, #19052a 0%, #0c0217 50%, #000414 100%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  animation: platinumHolographic 6s infinite linear;
+}
+
+.skc-tier-card--platinum::after {
+  content: "";
+  position: absolute;
+  top: -2px; left: -2px; right: -2px; bottom: -2px;
+  background: linear-gradient(
+    60deg,
+    #a855f7,
+    #ec4899,
+    #6366f1,
+    #14b8a6,
+    #f59e0b,
+    #a855f7
+  );
+  background-size: 300% 300%;
+  z-index: -1;
+  border-radius: 26px;
+  animation: platinumHolographic 6s infinite linear;
+}
+
+/* Internal Card Components */
+.skc-card-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 2;
+}
+
+.skc-card-chip {
+  width: 44px;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #d4af37, #f3e5ab, #aa771c);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.skc-card-chip::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+}
+
+.skc-card-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.skc-card-mid {
+  margin: 24px 0 18px;
+  z-index: 2;
+}
+
+.skc-card-client-name {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin: 0 0 6px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.skc-card-client-meta {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  gap: 12px;
+}
+
+.skc-card-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 16px;
+  z-index: 2;
+}
+
+.skc-card-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.skc-card-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 3px;
+}
+
+.skc-card-stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* Glowing Profile Avatar Border Helpers */
+.avatar-border-silver {
+  border: 3px solid #94a3b8 !important;
+  box-shadow: 0 0 18px rgba(148, 163, 184, 0.6) !important;
+}
+
+.avatar-border-gold {
+  border: 3px solid #f59e0b !important;
+  box-shadow: 0 0 22px rgba(245, 158, 11, 0.7), 0 0 45px rgba(245, 158, 11, 0.35) !important;
+  animation: goldPulseGlow 3s infinite ease-in-out !important;
+}
+
+.avatar-border-platinum {
+  border: 3px solid #a855f7 !important;
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.75), 0 0 50px rgba(99, 102, 241, 0.45) !important;
+  animation: platinumHolographic 5s infinite linear !important;
+}

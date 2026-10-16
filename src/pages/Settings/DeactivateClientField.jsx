@@ -137,6 +137,31 @@ export default function DeactivateClientField({handleOpenDeactiavte}) {
         }
     };
 
+    // STEP 4: Permanently delete the selected field
+    const handleDeleteField = async (field) => {
+        const confirmed = window.confirm(
+            `Permanently delete field "${field.fieldLabel}" (${field.fieldKey})? This cannot be undone.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setError("");
+        setMessage("");
+
+        try {
+            await api.delete(`/Admin/ClientForm/Field/${field.id}`);
+            setFields((previousFields) =>
+                previousFields.filter((item) => item.id !== field.id)
+            );
+            setMessage(`"${field.fieldLabel}" was deleted successfully.`);
+        } catch (err) {
+            console.error("Failed to delete field:", err);
+            setError("Unable to delete this field.");
+        }
+    };
+
     return (
         <div className="deactivate-main-box parent-layout">
            <section className="split-into-two">
@@ -253,23 +278,44 @@ export default function DeactivateClientField({handleOpenDeactiavte}) {
                                     </td>
 
                                     <td style={cellStyle}>
-                                        <button
-                                            type="button"
-                                            className="close-red"
-                                            disabled={
-                                                !field.active ||
-                                                deactivatingId === field.id
-                                            }
-                                            onClick={() =>
-                                                handleDeactivate(field)
-                                            }
-                                        >
-                                            {deactivatingId === field.id
-                                                ? "Deactivating..."
-                                                : field.active
-                                                ? "Deactivate"
-                                                : "Deactivated"}
-                                        </button>
+                                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                            <button
+                                                type="button"
+                                                className="close-red"
+                                                disabled={
+                                                    !field.active ||
+                                                    deactivatingId === field.id
+                                                }
+                                                onClick={() =>
+                                                    handleDeactivate(field)
+                                                }
+                                            >
+                                                {deactivatingId === field.id
+                                                    ? "Deactivating..."
+                                                    : field.active
+                                                    ? "Deactivate"
+                                                    : "Deactivated"}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteField(field)}
+                                                style={{
+                                                    background: "#ef4444",
+                                                    color: "#ffffff",
+                                                    border: "none",
+                                                    borderRadius: "6px",
+                                                    padding: "6px 12px",
+                                                    cursor: "pointer",
+                                                    fontWeight: "700",
+                                                    fontSize: "12px",
+                                                    transition: "all 0.2s ease",
+                                                }}
+                                                title="Permanently delete field"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
