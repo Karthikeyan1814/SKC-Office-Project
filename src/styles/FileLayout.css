@@ -108,3 +108,44 @@ font-family: var(--font2);
     color: white;
     border-radius: 5px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FILE LAYOUT MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .files-lay-container {
+    padding: 16px 12px;
+    margin: 16px 0;
+    border-radius: 14px;
+    box-sizing: border-box;
+  }
+
+  .files-lay-search-cont {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .files-lay-search-cont input {
+    width: 100%;
+  }
+
+  .files {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .files-buttons {
+    gap: 10px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .files-lay-container {
+    padding: 10px 6px;
+    margin: 8px 0;
+  }
+}

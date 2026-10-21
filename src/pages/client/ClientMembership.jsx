@@ -29,15 +29,6 @@ import {
 import { formatDate, formatTime, formatDateTimeAgo, formatFullDateTime } from "../../utils/dateFormat";
 
 const TIER_DATA = {
-  SILVER: {
-    name: "Silver Member",
-    tierClass: "skc-tier-card--silver",
-    badgeBg: "rgba(148, 163, 184, 0.2)",
-    badgeColor: "#cbd5e1",
-    accent: "#94a3b8",
-    icon: HiOutlineStar,
-    benefits: ["24/7 Priority Support", "GST Notice Assistance", "Standard Document Access"],
-  },
   GOLD: {
     name: "Gold Member",
     tierClass: "skc-tier-card--gold",
@@ -46,10 +37,10 @@ const TIER_DATA = {
     accent: "#f59e0b",
     icon: HiOutlineSparkles,
     benefits: [
-      "Everything in Silver",
-      "24/7 Timeline Meeting Booking",
-      "Live Documentation Support",
-      "Expiration-Free File Downloads",
+      "Priority Direct Messaging to Admin Desk",
+      "Expedited Document Review & Audit Advisory",
+      "24/7 Timeline Meeting Scheduling",
+      "Direct Notice & SCN Defense Assistance",
     ],
   },
   PLATINUM: {
@@ -60,18 +51,19 @@ const TIER_DATA = {
     accent: "#a855f7",
     icon: HiOutlineTrophy,
     benefits: [
-      "All Gold Benefits",
-      "Dedicated Senior Chartered Accountant",
-      "Unlimited 1-on-1 Consultations",
-      "Zero-Wait Live Chat Priority",
-      "Permanent Storage for Uploaded Files",
-      "1-Year VIP Term (Annual Renewal)",
+      "All Features Completely Unlocked (Max VIP)",
+      "Dedicated Senior Chartered Accountant Manager",
+      "Unlimited 1-on-1 Video Meetings & Direct Calling",
+      "Zero-Wait Live Audit Verification",
+      "Priority SCN & Appellate Defense",
+      "1-Year VIP Status (Annual Term)",
     ],
   },
 };
 
 export default function ClientMembership() {
   const [statusData, setStatusData] = useState(null);
+  const [membershipEnabled, setMembershipEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("meetings"); // meetings | docs | files
   const [files, setFiles] = useState([]);
@@ -184,10 +176,19 @@ export default function ClientMembership() {
   const fetchMembership = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/Client/Membership/Status");
-      setStatusData(res.data);
+      const [res, settingsRes] = await Promise.allSettled([
+        api.get("/Client/Membership/Status"),
+        api.get("/Public/Membership/GlobalSettings"),
+      ]);
+      if (settingsRes.status === "fulfilled" && settingsRes.value.data) {
+        setMembershipEnabled(Boolean(settingsRes.value.data.membershipEnabled));
+      }
+      if (res.status === "fulfilled") {
+        setStatusData(res.value.data);
+      } else {
+        setStatusData({ isActive: false });
+      }
     } catch {
-      // Fallback if not active
       setStatusData({ isActive: false });
     } finally {
       setLoading(false);
@@ -202,8 +203,8 @@ export default function ClientMembership() {
   };
 
   const isMember = statusData?.isActive;
-  const planType = (statusData?.membershipPlan || "SILVER").toUpperCase();
-  const tierConfig = TIER_DATA[planType] || TIER_DATA.SILVER;
+  const planType = (statusData?.membershipPlan || "GOLD").toUpperCase();
+  const tierConfig = TIER_DATA[planType] || TIER_DATA.GOLD;
   const TierIcon = tierConfig.icon;
 
   // Calculate days left
@@ -361,6 +362,52 @@ export default function ClientMembership() {
     );
   }
 
+  if (!membershipEnabled) {
+    return (
+      <div style={{ maxWidth: "700px", margin: "60px auto", padding: "0 20px", fontFamily: "'Inter', sans-serif" }}>
+        <div style={{
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+          borderRadius: "20px",
+          padding: "36px 32px",
+          color: "#ffffff",
+          textAlign: "center",
+          border: "1.5px solid rgba(255, 255, 255, 0.12)",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.3)",
+        }}>
+          <div style={{ fontSize: "44px", marginBottom: "16px" }}>🚀</div>
+          <span style={{
+            padding: "4px 12px",
+            background: "rgba(16, 185, 129, 0.2)",
+            color: "#34d399",
+            border: "1px solid rgba(16, 185, 129, 0.4)",
+            borderRadius: "999px",
+            fontSize: "12px",
+            fontWeight: "800",
+            letterSpacing: "0.5px",
+            display: "inline-block",
+            marginBottom: "12px",
+          }}>
+            INITIAL LAUNCH MODE ACTIVE
+          </span>
+          <h2 style={{ fontSize: "22px", fontWeight: "800", margin: "0 0 10px 0", color: "#ffffff" }}>
+            Full Free Unrestricted Portal Access
+          </h2>
+          <p style={{ color: "#cbd5e1", fontSize: "14px", lineHeight: "1.6", maxWidth: "520px", margin: "0 auto 24px auto" }}>
+            Sri Kathiravan & Co is currently operating in initial launch mode. All registered clients have complete, free access to Document Vault, Invoices & Receipts, and Appointment Booking without requiring a membership plan.
+          </p>
+          <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
+            <Link to="/Client" style={{ padding: "12px 24px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff", borderRadius: "10px", fontWeight: 700, textDecoration: "none" }}>
+              Return to Dashboard
+            </Link>
+            <Link to="/Client/Appointments" style={{ padding: "12px 24px", background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "10px", fontWeight: 700, textDecoration: "none" }}>
+              Book Free Consultation
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto", fontFamily: "'Inter', sans-serif" }}>
       {/* ── TOP HERO HEADER ──────────────────────────────────────────────── */}
@@ -429,7 +476,7 @@ export default function ClientMembership() {
           <p style={{ color: "#e2e8f0", fontSize: "14px", margin: 0, maxWidth: "600px", lineHeight: 1.5 }}>
             {isMember
               ? "Your membership grants 24/7 1-on-1 consultations, priority documentation support, and expiration-free document downloads."
-              : "Upgrade your account to unlock 24/7 meeting timelines, live chat documentation support, and permanent document downloads."}
+              : "Upgrade your account to unlock priority admin messaging, 24/7 meeting timelines, and dedicated CA support."}
           </p>
         </div>
 
@@ -440,7 +487,7 @@ export default function ClientMembership() {
                 type="button"
                 onClick={() => {
                   setActionType(planType === "PLATINUM" ? "EXTEND" : "UPGRADE");
-                  setTargetTier(planType === "SILVER" ? "GOLD" : "PLATINUM");
+                  setTargetTier("PLATINUM");
                   setShowUpgradeModal(true);
                 }}
                 style={{
@@ -1381,9 +1428,8 @@ export default function ClientMembership() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
             {[
-              { tier: "SILVER", name: "Silver Card", price: "₹299", duration: "1 Month", color: "#94a3b8", desc: "Essential compliance & audit support" },
-              { tier: "GOLD", name: "Gold Card", price: "₹699", duration: "6 Months", color: "#f59e0b", badge: "POPULAR", desc: "Includes 24/7 meetings & live chat" },
-              { tier: "PLATINUM", name: "Platinum Card", price: "₹999", duration: "12 Months (Annual Renewal)", color: "#a855f7", badge: "BEST VALUE", desc: "Full VIP suite & permanent storage for uploaded files" },
+              { tier: "GOLD", name: "Gold Card", price: "₹699", duration: "6 Months", color: "#f59e0b", badge: "POPULAR", desc: "Priority Admin Messaging, Document Review & 24/7 VIP Meetings" },
+              { tier: "PLATINUM", name: "Platinum Card", price: "₹999", duration: "12 Months (Annual Renewal)", color: "#a855f7", badge: "ALL FEATURES UNLOCKED", desc: "Dedicated CA Manager Desk, 1-on-1 Video Meetings & Zero-Wait Audit Verification" },
             ].map((p) => (
               <div
                 key={p.tier}

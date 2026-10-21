@@ -457,7 +457,38 @@
 
 /* ─── RESPONSIVE ─────────────────────────────────────── */
 
+@media (max-width: 768px) {
+  .member-hero-section {
+    padding: 50px 16px 36px;
+  }
+  .member-hero-title {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+  .member-hero-sub {
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+  .member-plans-section {
+    padding: 40px 14px;
+  }
+  .member-plans-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .member-plan-card {
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+}
+
 @media (max-width: 640px) {
+  .member-hero-section {
+    padding: 36px 12px 24px;
+  }
+  .member-hero-title {
+    font-size: 26px;
+  }
   .member-form-grid {
     grid-template-columns: 1fr;
   }
@@ -465,10 +496,11 @@
     grid-column: span 1;
   }
   .member-apply-form {
-    padding: 24px 16px;
+    padding: 20px 14px;
   }
   .member-hero-stats {
-    gap: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 }
 

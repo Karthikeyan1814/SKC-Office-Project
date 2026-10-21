@@ -142,6 +142,43 @@
   letter-spacing: 0.2px;
 }
 
+/* Notify Users Navbar Button (Admin Portal) */
+.topbar-notify-users-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  background: linear-gradient(135deg, var(--primary, #4f46e5) 0%, var(--primary-hover, #4338ca) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 9px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  white-space: nowrap;
+}
+
+.topbar-notify-users-btn:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.5);
+  filter: brightness(1.1);
+}
+
+.topbar-notify-users-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .topbar-notify-users-btn span {
+    display: none;
+  }
+  .topbar-notify-users-btn {
+    padding: 7px 10px;
+  }
+}
+
 .topbar-icon-btn {
   position: relative;
   background: rgba(255, 255, 255, 0.07);
@@ -260,6 +297,28 @@
   }
 
   .portal-topbar {
-    padding: 0 14px;
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .portal-topbar {
+    padding: 0 8px;
+    height: 56px;
+  }
+  .topbar-left {
+    gap: 8px;
+  }
+  .topbar-right {
+    gap: 6px;
+  }
+  .topbar-signout-btn span {
+    display: none;
+  }
+  .topbar-signout-btn {
+    padding: 6px 8px;
+  }
+  .topbar-logo {
+    height: 30px;
   }
 }

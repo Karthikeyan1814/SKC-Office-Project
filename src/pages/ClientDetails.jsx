@@ -202,13 +202,7 @@ export default function ClientDetails({ isStaff = false }) {
 
   // Auto-generate temporary password
   const handleGeneratePassword = () => {
-    const mobileDigits = formData.mobile.replace(/\D/g, "");
-    let pass;
-    if (mobileDigits.length >= 4) {
-      pass = mobileDigits.slice(-4) + "2026";
-    } else {
-      pass = "SKC@" + Math.floor(1000 + Math.random() * 9000);
-    }
+    const pass = "kathiravan&co";
     setFormData((prev) => ({ ...prev, password: pass }));
     toast.success(`Generated Temporary Password: ${pass}`);
   };

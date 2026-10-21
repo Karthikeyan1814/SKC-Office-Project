@@ -153,3 +153,45 @@ button:disabled {
   font-weight: 600 !important;
   letter-spacing: 0.2px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL MOBILE SCREEN SAFETY & ADAPTIVE SYSTEM
+   Guarantees zero overflow, proper alignment and padding without touching desktop
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+@media screen and (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+  }
+
+  /* Universal modal constraints for mobile */
+  [class*="modal-box"],
+  [class*="modal-card"],
+  [class*="-modal-content"],
+  [class*="modal-content"] {
+    max-width: 95vw !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Form inputs ensure no horizontal blowout */
+  input, select, textarea {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Smooth mobile touch scrolling */
+  [class*="-table-wrapper"],
+  [class*="-table-container"],
+  [class*="-table-wrap"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+}
+

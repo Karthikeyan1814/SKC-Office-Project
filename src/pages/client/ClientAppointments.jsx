@@ -65,11 +65,6 @@ export default function ClientAppointments() {
 
   const handleBook = async (e) => {
     e.preventDefault();
-    if (!isMember) {
-      toast.error("Please choose a membership plan to schedule consultations.");
-      navigate("/Client/Membership-Request");
-      return;
-    }
     if (!form.requestedDateTime) {
       toast.error("Please pick a preferred consultation date and time");
       return;
@@ -183,19 +178,10 @@ export default function ClientAppointments() {
           </button>
 
           <button
-            onClick={() => {
-              if (!isMember) {
-                toast.error("Please choose a membership plan to schedule consultations.");
-                navigate("/Client/Membership-Request");
-              } else {
-                setShowModal(true);
-              }
-            }}
+            onClick={() => setShowModal(true)}
             style={{
               padding: "11px 22px",
-              background: !isMember
-                ? "linear-gradient(135deg, #64748b, #475569)"
-                : "linear-gradient(135deg, var(--primary, #7c3aed) 0%, var(--primary-hover, #6d28d9) 100%)",
+              background: "linear-gradient(135deg, var(--primary, #7c3aed) 0%, var(--primary-hover, #6d28d9) 100%)",
               color: "#ffffff",
               border: "none",
               borderRadius: "12px",
@@ -205,79 +191,23 @@ export default function ClientAppointments() {
               cursor: "pointer",
               fontWeight: "800",
               fontSize: "13px",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+              boxShadow: "0 4px 16px rgba(124, 58, 237, 0.35)",
             }}
           >
-            {!isMember ? <HiOutlineLockClosed size={16} /> : <HiOutlinePlus size={18} />}
-            {!isMember ? "Plan Required to Book" : "Book Consultation"}
+            <HiOutlinePlus size={18} /> Book Consultation
           </button>
         </div>
       </div>
 
-      {/* ── MEMBERSHIP GATING BANNER ─────────────────────────── */}
-      {!isMember ? (
+      {/* ── CONSULTATION STATUS & VIP PRIVILEGES BANNER ──────── */}
+      {isMember ? (
         <div style={{
-          background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
-          borderRadius: "16px",
-          padding: "20px 24px",
-          color: "#ffffff",
-          marginBottom: "20px",
-          border: "1.5px solid #6366f1",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
-          boxShadow: "0 8px 24px rgba(49, 46, 129, 0.25)"
-        }}>
-          <div>
-            <span style={{
-              display: "inline-block",
-              padding: "3px 10px",
-              background: "#4338ca",
-              color: "#c7d2fe",
-              borderRadius: "999px",
-              fontSize: "11px",
-              fontWeight: "800",
-              letterSpacing: "0.5px",
-              marginBottom: "6px"
-            }}>
-              MEMBERSHIP ACCESS REQUIRED
-            </span>
-            <h3 style={{ margin: "0 0 4px", fontSize: "17px", fontWeight: "800" }}>
-              🔒 Consultation Appointments are Locked
-            </h3>
-            <p style={{ margin: 0, fontSize: "13px", color: "#e0e7ff" }}>
-              Schedule direct Chartered Accountant consultations, notice reviews, and video conferences by selecting an active membership plan.
-            </p>
-          </div>
-          <Link
-            to="/Client/Membership-Request"
-            style={{
-              padding: "10px 20px",
-              background: "linear-gradient(135deg, #f59e0b, #d97706)",
-              color: "#ffffff",
-              borderRadius: "10px",
-              fontWeight: "800",
-              fontSize: "13px",
-              textDecoration: "none",
-              boxShadow: "0 4px 14px rgba(245,158,11,0.4)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
-          >
-            <HiOutlineSparkles size={16} /> Choose Plan to Unlock
-          </Link>
-        </div>
-      ) : (
-        <div style={{
-          background: planType === "PLATINUM" ? "linear-gradient(135deg, #2e1065, #4c1d95)" : planType === "GOLD" ? "linear-gradient(135deg, #451a03, #78350f)" : "linear-gradient(135deg, #0f172a, #1e293b)",
+          background: planType === "PLATINUM" ? "linear-gradient(135deg, #2e1065, #4c1d95)" : "linear-gradient(135deg, #451a03, #78350f)",
           borderRadius: "14px",
           padding: "14px 20px",
           color: "#ffffff",
           marginBottom: "20px",
-          border: `1.5px solid ${planType === "PLATINUM" ? "#a855f7" : planType === "GOLD" ? "#f59e0b" : "#94a3b8"}`,
+          border: `1.5px solid ${planType === "PLATINUM" ? "#a855f7" : "#f59e0b"}`,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -286,22 +216,43 @@ export default function ClientAppointments() {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontSize: "20px" }}>
-              {planType === "PLATINUM" ? "💎" : planType === "GOLD" ? "🌟" : "⭐"}
+              {planType === "PLATINUM" ? "💎" : "🌟"}
             </span>
             <div>
               <strong style={{ fontSize: "14px", display: "block" }}>
-                {planType === "PLATINUM" ? "Platinum Elite: Dedicated Senior CA & Unlimited Priority Scheduling Active" : planType === "GOLD" ? "Gold VIP: 24/7 Flexible Timeline Scheduling Active (Any Day, Any Hour)" : "Silver Member: Standard Office-Hours Consultations (Mon-Sat, 10 AM - 6 PM)"}
+                {planType === "PLATINUM" ? "Platinum Elite: Dedicated Senior CA & Unlimited Priority Scheduling Active" : "Gold VIP: Priority Scheduling & Expedited Consultation Response"}
               </strong>
               <span style={{ fontSize: "12px", opacity: 0.85 }}>
-                {planType === "PLATINUM" ? "Zero wait times. Dedicated Senior Partner handling all your direct consultations." : planType === "GOLD" ? "Select any 24-hour timeline. Our executives adapt to your convenient schedule." : "Standard consultation appointments. Upgrade to Gold for 24/7 round-the-clock booking."}
+                {planType === "PLATINUM" ? "Dedicated Senior Chartered Accountant handling all your direct consultations." : "Priority review of all consultation requests with expedited slot allocation."}
               </span>
             </div>
           </div>
-          {planType === "SILVER" && (
-            <Link to="/Client/Membership-Request" style={{ fontSize: "12px", fontWeight: "700", color: "#fbbf24", textDecoration: "underline" }}>
-              Upgrade to Gold (24/7 Scheduling) &rarr;
-            </Link>
-          )}
+        </div>
+      ) : (
+        <div style={{
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+          borderRadius: "14px",
+          padding: "14px 20px",
+          color: "#ffffff",
+          marginBottom: "20px",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "10px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "20px" }}>📅</span>
+            <div>
+              <strong style={{ fontSize: "14px", display: "block" }}>
+                Direct CA Consultation Booking Desk (100% Free Access)
+              </strong>
+              <span style={{ fontSize: "12px", color: "#cbd5e1" }}>
+                All registered clients have free access to schedule online, in-person, or telephonic consultations with our CA advisory team.
+              </span>
+            </div>
+          </div>
         </div>
       )}
 

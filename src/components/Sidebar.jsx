@@ -16,22 +16,26 @@ import {
   HiOutlineSparkles,
   HiOutlineSwatch,
   HiOutlineLockClosed,
+  HiOutlineDocumentText,
+  HiOutlineReceiptPercent,
 } from "react-icons/hi2";
 import api from "../api/axiosInstance";
 import toast from "react-hot-toast";
 import { useUniversalTheme } from "../context/ThemeContext";
 
-const getMenuItems = (role, membershipStatus) => {
+const getMenuItems = (role, membershipStatus, membershipEnabled = false) => {
   const adminMenu = [
     { label: "Dashboard",          icon: HiOutlineChartBarSquare, path: "/Admin" },
     { label: "Client Directory",   icon: HiOutlineUsers,          path: "/Admin/ClientDetails" },
     { label: "File Repository",    icon: HiOutlineFolderOpen,      path: "/Admin/FileManagement" },
-    { label: "Form Customizer",    icon: HiOutlineCog6Tooth,       path: "/Admin/EditClientForm" },
+    { label: "Invoice & Receipt",  icon: HiOutlineReceiptPercent,  path: "/Admin/Billing" },
+    { label: "Form Customizer",    icon: HiOutlineDocumentText,    path: "/Admin/EditClientForm" },
     { label: "Home Page CMS",      icon: HiOutlineSquares2X2,      path: "/Admin/HomePageCMS" },
     { label: "Membership Tier",    icon: HiOutlineIdentification,  path: "/Admin/Membership" },
     { label: "Appointments",      icon: HiOutlineCalendarDays,    path: "/Admin/Appointments" },
     { label: "Staff & Access",     icon: HiOutlineShieldCheck,     path: "/Admin/AccessManagement" },
     { label: "Notifications",     icon: HiOutlineBell,            path: "/Admin/Notifications" },
+    { label: "System Settings",    icon: HiOutlineCog6Tooth,       path: "/Admin/Settings" },
     { label: "My Profile",         icon: HiOutlineUserCircle,      path: "/Admin/Profile" },
   ];
 
@@ -52,41 +56,54 @@ const getMenuItems = (role, membershipStatus) => {
     ? new Date(membershipStatus.membershipExpiry) < new Date()
     : false;
 
-  const clientMenu = isClientDeactivated
-    ? [
-        { label: "Account Status", icon: HiOutlineShieldCheck, path: "/Client" },
-      ]
-    : !isMemberActive || isExpired
-    ? [
-        { label: "Dashboard", icon: HiOutlineChartBarSquare, path: "/Client" },
-        {
-          label: isExpired ? "Renew Membership" : "Choose Membership",
-          icon: HiOutlineSparkles,
-          path: "/Client/Membership-Request",
-          highlight: true,
-        },
-        { label: "Membership Plans", icon: HiOutlineIdentification, path: "/Client/Membership" },
-        { label: "My Documents", icon: HiOutlineFolderOpen, path: "/Client/Files" },
-        { label: "Appointments", icon: HiOutlineCalendarDays, path: "/Client/Appointments", locked: true },
-        { label: "Notifications", icon: HiOutlineBell, path: "/Client/Notifications" },
-        { label: "My Profile", icon: HiOutlineUserCircle, path: "/Client/Profile" },
-      ]
-    : [
-        { label: "Dashboard", icon: HiOutlineChartBarSquare, path: "/Client" },
-        { label: "My Documents", icon: HiOutlineFolderOpen, path: "/Client/Files" },
-        {
-          label: plan === "PLATINUM" || plan === "GOLD" ? "24/7 VIP Appointments" : "Appointments",
-          icon: HiOutlineCalendarDays,
-          path: "/Client/Appointments",
-        },
-        {
-          label: `${plan ? plan.charAt(0) + plan.slice(1).toLowerCase() : "VIP"} Member Perks`,
-          icon: HiOutlineSparkles,
-          path: "/Client/Membership",
-        },
-        { label: "Notifications", icon: HiOutlineBell, path: "/Client/Notifications" },
-        { label: "My Profile", icon: HiOutlineUserCircle, path: "/Client/Profile" },
-      ];
+  // When membership is deactivated globally (Initial Launch Mode), client portal has unrestricted free access and no membership items
+  let clientMenu;
+  if (isClientDeactivated) {
+    clientMenu = [{ label: "Account Status", icon: HiOutlineShieldCheck, path: "/Client" }];
+  } else if (!membershipEnabled) {
+    clientMenu = [
+      { label: "Dashboard", icon: HiOutlineChartBarSquare, path: "/Client" },
+      { label: "My Documents", icon: HiOutlineFolderOpen, path: "/Client/Files" },
+      { label: "Invoices & Receipts", icon: HiOutlineReceiptPercent, path: "/Client/Billing" },
+      { label: "Appointments", icon: HiOutlineCalendarDays, path: "/Client/Appointments" },
+      { label: "Notifications", icon: HiOutlineBell, path: "/Client/Notifications" },
+      { label: "My Profile", icon: HiOutlineUserCircle, path: "/Client/Profile" },
+    ];
+  } else if (!isMemberActive || isExpired) {
+    clientMenu = [
+      { label: "Dashboard", icon: HiOutlineChartBarSquare, path: "/Client" },
+      {
+        label: isExpired ? "Renew Membership" : "Choose Membership",
+        icon: HiOutlineSparkles,
+        path: "/Client/Membership-Request",
+        highlight: true,
+      },
+      { label: "Membership Plans", icon: HiOutlineIdentification, path: "/Client/Membership" },
+      { label: "My Documents", icon: HiOutlineFolderOpen, path: "/Client/Files" },
+      { label: "Invoices & Receipts", icon: HiOutlineReceiptPercent, path: "/Client/Billing" },
+      { label: "Appointments", icon: HiOutlineCalendarDays, path: "/Client/Appointments" },
+      { label: "Notifications", icon: HiOutlineBell, path: "/Client/Notifications" },
+      { label: "My Profile", icon: HiOutlineUserCircle, path: "/Client/Profile" },
+    ];
+  } else {
+    clientMenu = [
+      { label: "Dashboard", icon: HiOutlineChartBarSquare, path: "/Client" },
+      { label: "My Documents", icon: HiOutlineFolderOpen, path: "/Client/Files" },
+      { label: "Invoices & Receipts", icon: HiOutlineReceiptPercent, path: "/Client/Billing" },
+      {
+        label: plan === "PLATINUM" || plan === "GOLD" ? "VIP Appointments" : "Appointments",
+        icon: HiOutlineCalendarDays,
+        path: "/Client/Appointments",
+      },
+      {
+        label: `${plan ? plan.charAt(0) + plan.slice(1).toLowerCase() : "VIP"} Member Perks`,
+        icon: HiOutlineSparkles,
+        path: "/Client/Membership",
+      },
+      { label: "Notifications", icon: HiOutlineBell, path: "/Client/Notifications" },
+      { label: "My Profile", icon: HiOutlineUserCircle, path: "/Client/Profile" },
+    ];
+  }
 
   if (role === "ADMIN") return adminMenu;
   if (role === "STAFF") return staffMenu;
@@ -99,6 +116,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingMemberships, setPendingMemberships] = useState(0);
   const [membershipStatus, setMembershipStatus] = useState(null);
+  const [membershipEnabled, setMembershipEnabled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -106,10 +124,19 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const setOpen = setIsOpen !== undefined ? setIsOpen : setInternalOpen;
 
   const role = localStorage.getItem("skc-role") || "CLIENT";
-  const menuItems = getMenuItems(role, membershipStatus);
+  const menuItems = getMenuItems(role, membershipStatus, membershipEnabled);
 
-  // Fetch unread notification count, membership pending count, and client membership status
+  // Fetch unread notification count, membership pending count, client membership status & global settings
   useEffect(() => {
+    const fetchGlobalSettings = async () => {
+      try {
+        const res = await api.get("/Public/Membership/GlobalSettings");
+        setMembershipEnabled(Boolean(res.data?.membershipEnabled));
+      } catch {
+        // silent
+      }
+    };
+
     const fetchUnread = async () => {
       try {
         const path =
@@ -145,10 +172,12 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       }
     };
 
+    fetchGlobalSettings();
     fetchUnread();
     fetchPendingMembership();
     fetchClientMembership();
     const interval = setInterval(() => {
+      fetchGlobalSettings();
       fetchUnread();
       fetchPendingMembership();
       fetchClientMembership();

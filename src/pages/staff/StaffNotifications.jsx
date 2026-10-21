@@ -13,12 +13,30 @@ import {
   HiOutlineInbox,
   HiOutlineShieldCheck,
   HiOutlineCheckCircle,
+  HiOutlineSpeakerWave,
+  HiOutlineSpeakerXMark,
 } from "react-icons/hi2";
+import NotificationSettingsModal from "../../components/NotificationSettingsModal";
+import { isSoundEnabled } from "../../utils/notificationSound";
 
 export default function StaffNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL"); // ALL | UNREAD | FILES | APPOINTMENTS | SYSTEM
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
+
+  useEffect(() => {
+    const handleSoundChange = (e) => {
+      if (e?.detail?.soundEnabled !== undefined) {
+        setSoundOn(e.detail.soundEnabled);
+      } else {
+        setSoundOn(isSoundEnabled());
+      }
+    };
+    window.addEventListener("skc-sound-settings-changed", handleSoundChange);
+    return () => window.removeEventListener("skc-sound-settings-changed", handleSoundChange);
+  }, []);
 
   const fetchNotifs = async () => {
     setLoading(true);
@@ -153,6 +171,21 @@ export default function StaffNotifications() {
         </div>
 
         <div className="staff-notif-actions">
+          <button
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="btn-staff-notif-action"
+            style={{
+              background: soundOn ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+              borderColor: soundOn ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)",
+              color: soundOn ? "#10b981" : "#ef4444",
+            }}
+            title="Notification Sound & Desktop Alert Settings"
+            id="staff-notif-sound-btn"
+          >
+            {soundOn ? <HiOutlineSpeakerWave size={16} /> : <HiOutlineSpeakerXMark size={16} />}
+            <span>Sound {soundOn ? "ON" : "OFF"}</span>
+          </button>
+
           <button
             onClick={fetchNotifs}
             className="btn-staff-notif-action btn-staff-notif-refresh"
@@ -290,6 +323,12 @@ export default function StaffNotifications() {
           })}
         </div>
       )}
+
+      {/* Sound & Alert Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+      />
     </div>
   );
 }

@@ -451,3 +451,87 @@
 .staff-upcoming-table tr:hover td {
   background-color: #f8fafc;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STAFF OVERVIEW MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .staff-overview-container {
+    padding: 10px 4px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .staff-hero-card {
+    padding: 20px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    border-radius: 14px;
+  }
+
+  .staff-hero-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .staff-hero-right {
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 12px;
+  }
+
+  .staff-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .staff-shortcuts-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .staff-categories-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .staff-upcoming-card {
+    padding: 16px 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+  }
+
+  .staff-upcoming-table {
+    min-width: 500px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .staff-overview-container {
+    padding: 6px 2px;
+  }
+
+  .staff-greeting-title {
+    font-size: 19px;
+  }
+
+  .staff-metric-card {
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  .staff-metric-num {
+    font-size: 26px;
+  }
+
+  .staff-categories-grid {
+    grid-template-columns: 1fr;
+  }
+}

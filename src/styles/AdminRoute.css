@@ -8,7 +8,7 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow-x: hidden;
+  overflow-x: clip;
   transition: background-color 0.3s ease;
 }
 
@@ -34,6 +34,19 @@
 @media (max-width: 768px) {
   .admin-child-route {
     margin-left: 0;
-    padding: 16px;
+    padding: 12px;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-child-route {
+    margin-left: 0;
+    padding: 8px 6px;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 }

@@ -327,3 +327,56 @@
   color: #64748b;
   line-height: 1.5;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STAFF PROFILE MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .staff-profile-container {
+    padding: 10px 4px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .staff-profile-hero {
+    padding: 20px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    border-radius: 14px;
+  }
+
+  .staff-profile-hero-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .staff-profile-card {
+    padding: 18px 14px;
+    border-radius: 12px;
+  }
+
+  .staff-privilege-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .staff-profile-container {
+    padding: 6px 2px;
+  }
+
+  .staff-greeting-title {
+    font-size: 19px;
+  }
+
+  .staff-profile-avatar {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+}

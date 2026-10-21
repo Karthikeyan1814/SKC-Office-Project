@@ -18,23 +18,6 @@ import {
 
 const TIERS = [
   {
-    id: "SILVER",
-    name: "Silver Card",
-    badge: "ESSENTIAL",
-    badgeColor: "#64748b",
-    price: "₹299",
-    duration: "1 Month",
-    accent: "#94a3b8",
-    icon: HiOutlineStar,
-    desc: "Perfect for foundational business compliance and standard document archiving.",
-    features: [
-      "Standard Document Vault Access",
-      "GST Notice Response Guidance",
-      "Email & Portal Notifications",
-      "Verified Audit Record Download",
-    ],
-  },
-  {
     id: "GOLD",
     name: "Gold Card",
     badge: "MOST POPULAR",
@@ -43,31 +26,31 @@ const TIERS = [
     duration: "6 Months",
     accent: "#f59e0b",
     icon: HiOutlineSparkles,
-    desc: "Our most requested package with 24/7 private meeting schedules and live CA chat.",
+    desc: "Our most requested package with priority admin messaging, consultation, and document review.",
     features: [
-      "Everything in Silver Plan",
+      "Priority Direct Messaging to Admin Desk",
+      "Expedited Document Review & Audit Advisory",
+      "Direct Notice Defense Assistance",
       "24/7 Priority Meeting Booking",
-      "Live Chat Documentation Support",
-      "Permanent Expiration-Free Downloads",
-      "Direct Notice Defense Advisory",
+      "Dedicated Ticket Escalation",
     ],
   },
   {
     id: "PLATINUM",
     name: "Platinum Card",
-    badge: "MAX PRIVILEGE",
+    badge: "MAX PRIVILEGE (ALL UNLOCKED)",
     badgeColor: "#9333ea",
     price: "₹999",
     duration: "12 Months (Annual Renewal)",
     accent: "#a855f7",
     icon: HiOutlineTrophy,
-    desc: "Complete VIP audit desk with dedicated Chartered Accountant and permanent vault for uploaded files (1-year term, annual renewal required).",
+    desc: "Complete VIP audit desk with dedicated Chartered Accountant manager and all platform features completely unlocked.",
     features: [
-      "All Gold Benefits Included",
+      "All Features Completely Unlocked",
       "Dedicated Chartered Accountant Desk",
       "Unlimited 1-on-1 Consultations",
       "Zero-Queue Live Audit Verification",
-      "Permanent Storage for Uploaded Files",
+      "Priority SCN Defense & Advisory",
       "1-Year VIP Status (Annual Renewal)",
     ],
   },
@@ -77,6 +60,7 @@ export default function ClientMembershipRequest() {
   const navigate = useNavigate();
   const [selectedTier, setSelectedTier] = useState("GOLD");
   const [currentMembership, setCurrentMembership] = useState(null);
+  const [membershipEnabled, setMembershipEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
@@ -90,23 +74,31 @@ export default function ClientMembershipRequest() {
     notes: "",
   });
 
-  // Fetch current client profile and membership status
+  // Fetch current client profile, membership status & global settings
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const memRes = await api.get("/Client/Membership/Status");
-        const mem = memRes.data;
-        setCurrentMembership(mem);
+        const [memRes, settingsRes] = await Promise.allSettled([
+          api.get("/Client/Membership/Status"),
+          api.get("/Public/Membership/GlobalSettings"),
+        ]);
 
-        const isMemberActive = mem?.isActive && mem?.membershipStatus === "MEMBER";
-        const hasExpired = mem?.membershipExpiry ? new Date(mem.membershipExpiry) < new Date() : false;
+        if (settingsRes.status === "fulfilled" && settingsRes.value.data) {
+          setMembershipEnabled(Boolean(settingsRes.value.data.membershipEnabled));
+        }
 
-        // If client already holds an active unexpired membership, pre-select next upgrade tier
-        if (isMemberActive && !hasExpired) {
-          const currentPlan = (mem?.membershipPlan || "").toUpperCase();
-          if (currentPlan === "SILVER") setSelectedTier("GOLD");
-          else if (currentPlan === "GOLD") setSelectedTier("PLATINUM");
-          else setSelectedTier("PLATINUM");
+        if (memRes.status === "fulfilled" && memRes.value.data) {
+          const mem = memRes.value.data;
+          setCurrentMembership(mem);
+
+          const isMemberActive = mem?.isActive && mem?.membershipStatus === "MEMBER";
+          const hasExpired = mem?.membershipExpiry ? new Date(mem.membershipExpiry) < new Date() : false;
+
+          if (isMemberActive && !hasExpired) {
+            const currentPlan = (mem?.membershipPlan || "").toUpperCase();
+            if (currentPlan === "GOLD") setSelectedTier("PLATINUM");
+            else setSelectedTier("PLATINUM");
+          }
         }
       } catch {
         setCurrentMembership(null);
@@ -140,7 +132,7 @@ export default function ClientMembershipRequest() {
     fetchInitialData();
   }, [navigate]);
 
-  const activeTier = TIERS.find((t) => t.id === selectedTier) || TIERS[1];
+  const activeTier = TIERS.find((t) => t.id === selectedTier) || TIERS[0];
   const isExpired = currentMembership?.membershipExpiry
     ? new Date(currentMembership.membershipExpiry) < new Date()
     : false;
@@ -198,7 +190,53 @@ export default function ClientMembershipRequest() {
   if (loading) {
     return (
       <div className="client-page-container" style={{ textAlign: "center", padding: "80px 20px" }}>
-        <p style={{ color: "#64748b", fontSize: "15px" }}>Loading membership privileges & client profile...</p>
+        <p style={{ color: "#b3b4b5ff", fontSize: "15px" }}>Loading membership privileges & client profile...</p>
+      </div>
+    );
+  }
+
+  if (!membershipEnabled) {
+    return (
+      <div className="client-page-container" style={{ maxWidth: "700px", margin: "60px auto", padding: "0 20px" }}>
+        <div style={{
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+          borderRadius: "20px",
+          padding: "36px 32px",
+          color: "#ffffff",
+          textAlign: "center",
+          border: "1.5px solid rgba(255, 255, 255, 0.12)",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.3)",
+        }}>
+          <div style={{ fontSize: "44px", marginBottom: "16px" }}>🚀</div>
+          <span style={{
+            padding: "4px 12px",
+            background: "rgba(16, 185, 129, 0.2)",
+            color: "#34d399",
+            border: "1px solid rgba(16, 185, 129, 0.4)",
+            borderRadius: "999px",
+            fontSize: "12px",
+            fontWeight: "800",
+            letterSpacing: "0.5px",
+            display: "inline-block",
+            marginBottom: "12px",
+          }}>
+            INITIAL LAUNCH MODE ACTIVE
+          </span>
+          <h2 style={{ fontSize: "22px", fontWeight: "800", margin: "0 0 10px 0", color: "#ffffff" }}>
+            Full Unrestricted Client Access
+          </h2>
+          <p style={{ color: "#cbd5e1", fontSize: "14px", lineHeight: "1.6", maxWidth: "520px", margin: "0 auto 24px auto" }}>
+            Sri Kathiravan & Co is currently operating in initial launch mode. All registered clients have complete, free access to Document Vault, Invoices & Receipts, and Appointment Booking without requiring a membership plan.
+          </p>
+          <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
+            <Link to="/Client" className="btn-client-gold" style={{ padding: "12px 24px" }}>
+              Return to Dashboard
+            </Link>
+            <Link to="/Client/Appointments" className="btn-client-outline" style={{ padding: "12px 24px" }}>
+              Book Free Consultation
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

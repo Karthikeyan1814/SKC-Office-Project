@@ -23,9 +23,8 @@ import {
 } from "react-icons/hi2";
 
 const PLAN_META = {
-  SILVER: { color: "#94a3b8", bg: "rgba(148,163,184,0.1)", label: "Silver", icon: HiOutlineStar, months: 1, price: 299 },
-  GOLD:   { color: "#f59e0b", bg: "rgba(245,158,11,0.1)",  label: "Gold",   icon: HiOutlineSparkles, months: 6, price: 699 },
-  PLATINUM:{ color: "#a855f7", bg: "rgba(168,85,247,0.1)", label: "Platinum", icon: HiOutlineTrophy, months: 12, price: 999 },
+  GOLD:    { color: "#f59e0b", bg: "rgba(245,158,11,0.1)",  label: "Gold",   icon: HiOutlineSparkles, months: 6, price: 699, privilege: "Priority Admin Messaging, Consultation & Document Review" },
+  PLATINUM:{ color: "#a855f7", bg: "rgba(168,85,247,0.1)", label: "Platinum", icon: HiOutlineTrophy, months: 12, price: 999, privilege: "All Features Completely Unlocked, 1-on-1 Video Meetings & Dedicated CA Manager" },
 };
 
 export default function MembershipManagePage() {
@@ -38,6 +37,8 @@ export default function MembershipManagePage() {
   const [plans, setPlans] = useState([]);
   const [members, setMembers] = useState([]);
   const [savingPlans, setSavingPlans] = useState(false);
+  const [membershipEnabled, setMembershipEnabled] = useState(false);
+  const [togglingMaster, setTogglingMaster] = useState(false);
 
   // Permission popup
   const [permissionModal, setPermissionModal] = useState(null); // { request, planType }
@@ -51,6 +52,30 @@ export default function MembershipManagePage() {
   // Reject modal
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+
+  const fetchGlobalSettings = async () => {
+    try {
+      const res = await api.get("/Public/Membership/GlobalSettings");
+      setMembershipEnabled(Boolean(res.data?.membershipEnabled));
+    } catch {}
+  };
+
+  const handleToggleMaster = async () => {
+    setTogglingMaster(true);
+    try {
+      const res = await api.post("/Admin/Membership/ToggleMaster", { enabled: !membershipEnabled });
+      setMembershipEnabled(res.data.membershipEnabled);
+      if (res.data.membershipEnabled) {
+        toast.success("🌟 Membership System ACTIVATED! Tier features are now LIVE for clients.");
+      } else {
+        toast.success("⏸️ Membership System DEACTIVATED! Portal set to Initial Launch Mode (unrestricted, free client access).");
+      }
+    } catch {
+      toast.error("Failed to toggle membership system status.");
+    } finally {
+      setTogglingMaster(false);
+    }
+  };
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -74,7 +99,8 @@ export default function MembershipManagePage() {
   const fetchPlans = async () => {
     try {
       const res = await api.get("/Admin/Membership/Plans");
-      setPlans(res.data || []);
+      const filtered = (res.data || []).filter(p => p.planTier !== "SILVER");
+      setPlans(filtered);
     } catch {}
   };
 
@@ -86,6 +112,7 @@ export default function MembershipManagePage() {
   };
 
   useEffect(() => {
+    fetchGlobalSettings();
     fetchRequests();
     fetchPendingCount();
     fetchPlans();
@@ -106,10 +133,25 @@ export default function MembershipManagePage() {
     setQrPreview(URL.createObjectURL(f));
   };
 
+  const getPlanDetails = (tier) => {
+    const defaultMeta = PLAN_META[tier] || PLAN_META.GOLD;
+    const planData = plans.find((p) => p.planTier === tier);
+    return {
+      label: planData?.displayName || defaultMeta.label,
+      price: (planData?.price !== undefined && planData?.price !== null && planData?.price !== "") ? planData.price : defaultMeta.price,
+      months: (planData?.durationMonths !== undefined && planData?.durationMonths !== null && planData?.durationMonths !== "") ? planData.durationMonths : defaultMeta.months,
+      color: defaultMeta.color,
+      bg: defaultMeta.bg,
+      icon: defaultMeta.icon,
+      privilege: defaultMeta.privilege,
+    };
+  };
+
   const buildDefaultMessage = (req, tier) => {
-    const plan = PLAN_META[tier || req.planType || "SILVER"];
+    const selectedTier = tier || req?.planType || "GOLD";
+    const plan = getPlanDetails(selectedTier);
     return (
-      `🎉 Dear ${req.fullName},\n\n` +
+      `🎉 Dear ${req?.fullName || "Valued Client"},\n\n` +
       `Your *${plan.label} Membership* at Sri Kathiravan & Co has been approved!\n\n` +
       `💳 Plan: ${plan.label}\n` +
       `💰 Amount: ₹${plan.price}\n` +
@@ -120,7 +162,7 @@ export default function MembershipManagePage() {
   };
 
   const openPermissionModal = (req) => {
-    const tier = req.planType || "SILVER";
+    const tier = req?.planType && req.planType !== "SILVER" ? req.planType : "GOLD";
     setPermissionModal({ request: req, planType: tier });
     setCustomMessage(buildDefaultMessage(req, tier));
     setAdminNote("");
@@ -139,9 +181,10 @@ export default function MembershipManagePage() {
 
   // ── Send Native Email Client (mailto)
   const sendMailTo = (req) => {
-    const plan = PLAN_META[permissionModal?.planType || req.planType || "SILVER"];
+    const tier = permissionModal?.planType || req?.planType || "GOLD";
+    const plan = getPlanDetails(tier);
     const subject = encodeURIComponent(`🎉 Membership Approved – Sri Kathiravan & Co (${plan.label} Plan)`);
-    const body = encodeURIComponent(customMessage || buildDefaultMessage(req, permissionModal?.planType));
+    const body = encodeURIComponent(customMessage || buildDefaultMessage(req, tier));
     window.open(`mailto:${req.email}?subject=${subject}&body=${body}`, "_blank");
   };
 
@@ -198,7 +241,8 @@ export default function MembershipManagePage() {
     setSavingPlans(true);
     try {
       await api.put("/Admin/Membership/Plans", plans);
-      toast.success("Membership plans updated!");
+      toast.success("Membership plans updated! Automated message amount and duration synchronized.");
+      fetchPlans();
     } catch {
       toast.error("Failed to save plans");
     } finally {
@@ -294,9 +338,102 @@ export default function MembershipManagePage() {
           {pendingCount > 0 && <span className="mm-badge">{pendingCount} New</span>}
         </div>
       </div>
-      <p style={{ color: "#6b7280", fontSize: "14px", marginBottom: "24px" }}>
+      <p style={{ color: "#6b7280", fontSize: "14px", marginBottom: "20px" }}>
         Review requests, activate plans, configure tiers, and manage active members.
       </p>
+
+      {/* ── MASTER SYSTEM TOGGLE BANNER ────────────────────── */}
+      <div style={{
+        background: membershipEnabled
+          ? "linear-gradient(135deg, #064e3b 0%, #065f46 100%)"
+          : "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+        borderRadius: "16px",
+        padding: "20px 24px",
+        color: "#ffffff",
+        marginBottom: "24px",
+        border: membershipEnabled ? "2px solid #10b981" : "2px solid #475569",
+        boxShadow: membershipEnabled
+          ? "0 10px 30px rgba(16, 185, 129, 0.25)"
+          : "0 10px 30px rgba(15, 23, 42, 0.25)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "16px",
+        transition: "all 0.3s ease"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: "260px", flex: 1 }}>
+          <div style={{
+            width: "50px",
+            height: "50px",
+            borderRadius: "14px",
+            background: membershipEnabled ? "rgba(16, 185, 129, 0.2)" : "rgba(148, 163, 184, 0.15)",
+            border: membershipEnabled ? "1.5px solid #34d399" : "1.5px solid #64748b",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "24px",
+            flexShrink: 0
+          }}>
+            {membershipEnabled ? "🌟" : "⏸️"}
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "4px" }}>
+              <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", letterSpacing: "-0.2px" ,color:"white"}}>
+                {membershipEnabled ? "Membership System: ACTIVATED & LIVE" : "Membership System: DEACTIVATED (Initial Launch Mode)"}
+              </h3>
+              <span style={{
+                padding: "3px 10px",
+                borderRadius: "999px",
+                fontSize: "11px",
+                fontWeight: "800",
+                letterSpacing: "0.5px",
+                background: membershipEnabled ? "#10b981" : "#475569",
+                color: "#ffffff"
+              }}>
+                {membershipEnabled ? "VIP GATING ACTIVE" : "100% FREE CLIENT ACCESS"}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", opacity: 0.9, lineHeight: "1.4", maxWidth: "650px" }}>
+              {membershipEnabled
+                ? "Active membership tiers (Gold & Platinum) are currently displayed in the client portal. Clients can request upgrades for priority admin messaging and dedicated CA desk. (File Hub, Invoices, and Appointments remain free for all clients)."
+                : "Initial Launch Mode is active. All membership pages, upgrade cards, and tier banners are hidden across the client portal. All registered clients have 100% free and unrestricted access."}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleToggleMaster}
+          disabled={togglingMaster}
+          style={{
+            padding: "12px 24px",
+            background: membershipEnabled
+              ? "linear-gradient(135deg, #ef4444, #dc2626)"
+              : "linear-gradient(135deg, #10b981, #059669)",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "12px",
+            fontSize: "13.5px",
+            fontWeight: "800",
+            cursor: togglingMaster ? "not-allowed" : "pointer",
+            boxShadow: membershipEnabled
+              ? "0 4px 14px rgba(239, 68, 68, 0.4)"
+              : "0 4px 14px rgba(16, 185, 129, 0.4)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            transition: "all 0.2s ease"
+          }}
+        >
+          {togglingMaster ? (
+            "Updating System..."
+          ) : membershipEnabled ? (
+            <>⏸️ Turn OFF Membership (Launch Mode)</>
+          ) : (
+            <>🚀 Turn ON Membership (Activate VIP)</>
+          )}
+        </button>
+      </div>
 
       {/* ── TABS ───────────────────────────────────────── */}
       <div className="mm-tabs">
@@ -335,7 +472,7 @@ export default function MembershipManagePage() {
           ) : (
             <div className="mm-requests">
               {requests.map((r) => {
-                const planMeta = PLAN_META[r.planType] || PLAN_META.SILVER;
+                const planMeta = PLAN_META[r.planType] || PLAN_META.GOLD;
                 const PlanIcon = planMeta.icon;
                 const isExpanded = expandedId === r.id;
                 const avatarColor = planMeta.color;
@@ -413,10 +550,10 @@ export default function MembershipManagePage() {
       {activeTab === "plans" && (
         <div>
           <p style={{ color: "#6b7280", fontSize: "14px", marginBottom: "20px" }}>
-            Configure the three membership tiers. Changes here update the plan settings used for new activations.
+            Configure active membership tiers (Gold & Platinum). Changes here update the plan settings used for new activations.
           </p>
           <div className="mm-plans-grid">
-            {["SILVER", "GOLD", "PLATINUM"].map((tier) => {
+            {["GOLD", "PLATINUM"].map((tier) => {
               const meta = PLAN_META[tier];
               const planData = plans.find((p) => p.planTier === tier) || {};
               const PlanIcon = meta.icon;
@@ -462,7 +599,7 @@ export default function MembershipManagePage() {
           ) : (
             <div className="mm-members-grid">
               {members.map((m) => {
-                const meta = PLAN_META[m.membershipPlan] || PLAN_META.SILVER;
+                const meta = PLAN_META[m.membershipPlan] || PLAN_META.GOLD;
                 return (
                   <div key={m.id} className="mm-member-card" style={{ borderLeft: `4px solid ${meta.color}` }}>
                     <div className="mm-member-avatar" style={{ background: meta.color }}>
@@ -504,23 +641,23 @@ export default function MembershipManagePage() {
               {/* Plan selector */}
               <p style={{ font: "600 13px Inter, sans-serif", color: "#374151", margin: "0 0 10px" }}>Select Membership Plan to Activate</p>
               <div className="mm-modal-plan-select">
-                {["SILVER", "GOLD", "PLATINUM"].map((tier) => {
-                  const meta = PLAN_META[tier];
+                {["GOLD", "PLATINUM"].map((tier) => {
+                  const planInfo = getPlanDetails(tier);
                   const isActive = permissionModal.planType === tier;
                   return (
                     <button
                       key={tier}
                       className={`mm-modal-plan-btn ${isActive ? "active" : ""}`}
-                      style={isActive ? { borderColor: meta.color, color: meta.color } : {}}
+                      style={isActive ? { borderColor: planInfo.color, color: planInfo.color } : {}}
                       onClick={() => {
                         const nextTier = tier;
                         setPermissionModal((prev) => ({ ...prev, planType: nextTier }));
                         setCustomMessage(buildDefaultMessage(permissionModal.request, nextTier));
                       }}
                     >
-                      <div style={{ fontSize: "11px", fontWeight: 800 }}>{meta.label}</div>
-                      <div style={{ fontSize: "13px", fontWeight: 900, color: isActive ? meta.color : "#111827" }}>₹{meta.price}</div>
-                      <div style={{ fontSize: "11px", color: "#6b7280" }}>{meta.months} mo.</div>
+                      <div style={{ fontSize: "11px", fontWeight: 800 }}>{planInfo.label}</div>
+                      <div style={{ fontSize: "13px", fontWeight: 900, color: isActive ? planInfo.color : "#111827" }}>₹{planInfo.price}</div>
+                      <div style={{ fontSize: "11px", color: "#6b7280" }}>{planInfo.months} mo.</div>
                     </button>
                   );
                 })}

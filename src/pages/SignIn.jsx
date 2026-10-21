@@ -1,7 +1,98 @@
 import { useState } from "react";
 import "../styles/SignIn.css";
-import { authLogin, sendForgotPasswordOtp, verifyAndResetPassword } from "../api/authlogin";
+import { authLogin, sendForgotPasswordOtp, verifyAndResetPassword, verifyStaffLoginOtp, resendStaffLoginOtp } from "../api/authlogin";
 import { useNavigate } from "react-router-dom";
+
+const TRANSLATIONS = {
+    en: {
+        firmName: "Sri Kathiravan & Co.",
+        portalBadge: "Chartered Tax & Client Portal",
+        welcomeMsg: "Welcome to Sri Kathiravan & Co. enterprise portal. If you are a new client, please schedule an initial appointment with our office desk.",
+        consultantMsg: "Dashboard access is securely encrypted and managed by your designated tax consultant.",
+        signInTitle: "Sign In",
+        roles: {
+            client: "Client",
+            staff: "Staff",
+            admin: "Admin",
+        },
+        usernameLabel: "Email or Mobile",
+        usernamePlaceholder: "Enter Registered Email or Mobile",
+        passwordLabel: "Password",
+        passwordPlaceholder: "Password",
+        forgotBtn: "Forgot Password? Reset via OTP",
+        firstTimeNoteTitle: "First Time Sign-In:",
+        firstTimeNoteDesc: "Enter your registered email/phone and your assigned temporary credentials. You will be prompted to set your personal security password upon first access.",
+        signInBtn: "Sign In to Portal",
+        authenticating: "Authenticating...",
+        translateBtnText: "Translate to தமிழ் (Tamil)",
+        translateActiveText: "தமிழ் (இயங்குகிறது) • English",
+
+        // Forgot Modal
+        modalTitle: "Reset Password",
+        step1Sub: "Step 1 of 2: Verify your registered email",
+        step2Sub: "Step 2 of 2: Enter 6-digit OTP & new password",
+        emailLabel: "Registered Email Address",
+        emailPlaceholder: "e.g. client@example.com",
+        sendOtpBtn: "Send 6-Digit OTP",
+        sendingOtp: "Sending OTP...",
+        cancelBtn: "Cancel",
+        sentTo: "Sent to:",
+        changeEmail: "Change Email",
+        otpLabel: "6-Digit Verification Code (OTP)",
+        otpPlaceholder: "Enter 6-digit OTP",
+        newPasswordLabel: "New Password",
+        newPasswordPlaceholder: "Min 4 characters",
+        confirmPasswordLabel: "Confirm New Password",
+        confirmPasswordPlaceholder: "Re-type new password",
+        resendCode: "Resend Code",
+        resetPasswordBtn: "Reset Password",
+        resetting: "Resetting...",
+    },
+    ta: {
+        firmName: "ஸ்ரீ கதிரவன் & கோ.",
+        portalBadge: "பட்டய வரி ஆலோசகர் & வாடிக்கையாளர் தளம்",
+        welcomeMsg: "ஸ்ரீ கதிரவன் & கோ நிறுவன பிரத்யேக போர்ட்டலுக்கு வரவேற்கிறோம். புதிய வாடிக்கையாளர் எனில், எங்கள் அலுவலக மேசையுடன் முன்பதிவு செய்யவும்.",
+        consultantMsg: "டாஷ்போர்டு அணுகல் உங்கள் நியமிக்கப்பட்ட வரி ஆலோசகரால் பாதுகாப்பாக நிர்வகிக்கப்படுகிறது.",
+        signInTitle: "உள்நுழைவு",
+        roles: {
+            client: "வாடிக்கையாளர்",
+            staff: "பணியாளர்",
+            admin: "நிர்வாகி",
+        },
+        usernameLabel: "மின்னஞ்சல் அல்லது கைபேசி எண்",
+        usernamePlaceholder: "பதிவுசெய்த மின்னஞ்சல் அல்லது கைபேசி எண் உள்ளிடவும்",
+        passwordLabel: "கடவுச்சொல்",
+        passwordPlaceholder: "ரகசிய கடவுச்சொல் உள்ளிடவும்",
+        forgotBtn: "கடவுச்சொல் மறந்துவிட்டதா? OTP மூலம் மீட்டமைக்க",
+        firstTimeNoteTitle: "முதல் முறை உள்நுழைவு:",
+        firstTimeNoteDesc: "உங்கள் பதிவுசெய்த மின்னஞ்சல்/தொலைபேசி மற்றும் வழங்கப்பட்ட தற்காலிக கடவுச்சொல்லை உள்ளிடவும். முதல் அணுகலில் புதிய கடவுச்சொல்லை அமைக்கும்படி கேட்கப்படுவீர்கள்.",
+        signInBtn: "தளத்திற்குள் நுழையவும்",
+        authenticating: "சரிபார்க்கிறது...",
+        translateBtnText: "Translate to தமிழ் (Tamil)",
+        translateActiveText: "தமிழ் (இயங்குகிறது) • English",
+
+        // Forgot Modal
+        modalTitle: "கடவுச்சொல்லை மீட்டமைக்க",
+        step1Sub: "படி 1 / 2: பதிவுசெய்த மின்னஞ்சலை சரிபார்க்கவும்",
+        step2Sub: "படி 2 / 2: 6 இலக்க OTP & புதிய கடவுச்சொல் உள்ளிடவும்",
+        emailLabel: "பதிவுசெய்த மின்னஞ்சல் முகவரி",
+        emailPlaceholder: "உதா: client@example.com",
+        sendOtpBtn: "6-இலக்க OTP அனுப்பவும்",
+        sendingOtp: "OTP அனுப்புகிறது...",
+        cancelBtn: "ரத்து செய்",
+        sentTo: "அனுப்பப்பட்ட மின்னஞ்சல்:",
+        changeEmail: "மின்னஞ்சலை மாற்று",
+        otpLabel: "6-இலக்க சரிபார்ப்புக் குறியீடு (OTP)",
+        otpPlaceholder: "6-இலக்க OTP உள்ளிடவும்",
+        newPasswordLabel: "புதிய கடவுச்சொல்",
+        newPasswordPlaceholder: "குறைந்தது 4 எழுத்துக்கள்",
+        confirmPasswordLabel: "புதிய கடவுச்சொல்லை உறுதிப்படுத்தவும்",
+        confirmPasswordPlaceholder: "புதிய கடவுச்சொல்லை மீண்டும் உள்ளிடவும்",
+        resendCode: "குறியீட்டை மீண்டும் அனுப்பு",
+        resetPasswordBtn: "கடவுச்சொல்லை மீட்டமை",
+        resetting: "மாற்றப்படுகிறது...",
+    }
+};
 
 export default function SignIn() {
     const [currentRole, setCurrentRole] = useState("client");
@@ -13,6 +104,7 @@ export default function SignIn() {
     const [showPassword, setShowPassword] = useState(false);
     const [loginLoading, setLoginLoading] = useState(false);
     const [loginError, setLoginError] = useState("");
+    const [isTamil, setIsTamil] = useState(false);
 
     // Forgot Password Modal State
     const [showForgotModal, setShowForgotModal] = useState(false);
@@ -22,8 +114,24 @@ export default function SignIn() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [forgotLoading, setForgotLoading] = useState(false);
     const [forgotMsg, setForgotMsg] = useState({ type: "", text: "", devOtp: "" });
+
+    // Staff Login Authorization with Admin Email OTP
+    const [staffOtpModal, setStaffOtpModal] = useState({
+        open: false,
+        sessionId: "",
+        staffName: "",
+        adminEmailMasked: "",
+        otp: "",
+        loading: false,
+        resending: false,
+        error: "",
+        successMsg: "",
+    });
+
+    const t = isTamil ? TRANSLATIONS.ta : TRANSLATIONS.en;
 
     const navigate = useNavigate();
 
@@ -46,6 +154,20 @@ export default function SignIn() {
         setLoginLoading(true);
         try {
             const response = await authLogin(redirectUrl, auth);
+            if (response.status === "OTP_REQUIRED") {
+                setStaffOtpModal({
+                    open: true,
+                    sessionId: response.sessionId,
+                    staffName: response.staffName || auth.username,
+                    adminEmailMasked: response.adminEmailMasked || "Administrator Email",
+                    otp: "",
+                    loading: false,
+                    resending: false,
+                    error: "",
+                    successMsg: response.message || "An authorization OTP has been dispatched to Admin email.",
+                });
+                return;
+            }
             if (response.status === "success") {
                 if (response.role === "ADMIN") {
                     navigate("/Admin");
@@ -60,6 +182,48 @@ export default function SignIn() {
             setLoginError(msg);
         } finally {
             setLoginLoading(false);
+        }
+    };
+
+    const handleVerifyStaffOtp = async (e) => {
+        e.preventDefault();
+        if (!staffOtpModal.otp || staffOtpModal.otp.trim().length !== 6) {
+            setStaffOtpModal(prev => ({ ...prev, error: "Please enter the 6-digit OTP provided by Admin." }));
+            return;
+        }
+
+        setStaffOtpModal(prev => ({ ...prev, loading: true, error: "" }));
+        try {
+            const res = await verifyStaffLoginOtp(staffOtpModal.sessionId, staffOtpModal.otp.trim());
+            if (res.status === "success") {
+                setStaffOtpModal(prev => ({ ...prev, open: false }));
+                navigate("/Staff");
+            } else {
+                setStaffOtpModal(prev => ({ ...prev, error: res.message || "Invalid OTP code." }));
+            }
+        } catch (err) {
+            const msg = err.response?.data?.message || "Verification failed. Please check the OTP or try logging in again.";
+            setStaffOtpModal(prev => ({ ...prev, error: msg }));
+        } finally {
+            setStaffOtpModal(prev => ({ ...prev, loading: false }));
+        }
+    };
+
+    const handleResendStaffOtp = async () => {
+        setStaffOtpModal(prev => ({ ...prev, resending: true, error: "", successMsg: "" }));
+        try {
+            const res = await resendStaffLoginOtp(staffOtpModal.sessionId);
+            setStaffOtpModal(prev => ({
+                ...prev,
+                resending: false,
+                successMsg: res.message || "A fresh authorization code has been sent to Admin email."
+            }));
+        } catch (err) {
+            setStaffOtpModal(prev => ({
+                ...prev,
+                resending: false,
+                error: err.response?.data?.message || "Failed to resend OTP. Please try again."
+            }));
         }
     };
 
@@ -150,17 +314,40 @@ export default function SignIn() {
 
     return (
         <div className="signin-container">
+            {/* TOP TRANSLATION ACTION BAR */}
+            <div className="signin-top-bar">
+                <button
+                    type="button"
+                    className={`signin-translate-btn ${isTamil ? "active-tamil" : ""}`}
+                    onClick={() => setIsTamil((prev) => !prev)}
+                    title={isTamil ? "Switch to English" : "தமிழ் மொழிக்கு மாற்றுக"}
+                    id="signin-lang-translate-btn"
+                >
+                    🌐 {isTamil ? t.translateActiveText : t.translateBtnText}
+                </button>
+            </div>
+
             <section className="signIn-layout">
                 <div className="signin-left">
                     <img src="/main_logo.png" alt="SKC Logo" />
-                    <h1>Sri Kathiravan &amp; Co.</h1>
-                    <span className="signin-portal-badge">Chartered Tax &amp; Client Portal</span>
-                    <p>Welcome to Sri Kathiravan &amp; Co. enterprise portal. If you are a new client, please schedule an initial appointment with our office desk.</p>
-                    <p>Dashboard access is securely encrypted and managed by your designated tax consultant.</p>
+                    <h1>{t.firmName}</h1>
+                    <span className="signin-portal-badge">{t.portalBadge}</span>
+                    <p>{t.welcomeMsg}</p>
+                    <p>{t.consultantMsg}</p>
                 </div>
 
                 <form className="signin-right" onSubmit={handleSubmit}>
-                    <h1 className="grid1 signin-title">Sign In</h1>
+                    <div className="grid1 signin-header-row">
+                        <h1 className="signin-title">{t.signInTitle}</h1>
+                        <button
+                            type="button"
+                            className={`signin-inline-translate ${isTamil ? "active-tamil" : ""}`}
+                            onClick={() => setIsTamil((prev) => !prev)}
+                            title={isTamil ? "Switch to English" : "Translate to தமிழ்"}
+                        >
+                            🌐 {isTamil ? "EN" : "தமிழ்"}
+                        </button>
+                    </div>
 
                     {loginError && (
                         <div className="grid1 login-error-banner">
@@ -174,36 +361,36 @@ export default function SignIn() {
                             onClick={() => handleRoleChange("client")}
                             className={currentRole === "client" ? "role-btn active" : "role-btn"}
                         >
-                            Client
+                            {t.roles.client}
                         </button>
                         <button
                             type="button"
                             onClick={() => handleRoleChange("staff")}
                             className={currentRole === "staff" ? "role-btn active" : "role-btn"}
                         >
-                            Staff
+                            {t.roles.staff}
                         </button>
                         <button
                             type="button"
                             onClick={() => handleRoleChange("admin")}
                             className={currentRole === "admin" ? "role-btn active" : "role-btn"}
                         >
-                            Admin
+                            {t.roles.admin}
                         </button>
                     </div>
 
-                    <label htmlFor="username">Email or Mobile</label>
+                    <label htmlFor="username">{t.usernameLabel}</label>
                     <input
                         type="text"
                         onChange={handleChange}
                         value={auth.username}
                         name="username"
                         id="username"
-                        placeholder="Enter Registered Email or Mobile"
+                        placeholder={t.usernamePlaceholder}
                         required
                     />
 
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="password">{t.passwordLabel}</label>
                     <div className="signin-pass-wrapper">
                         <input
                             type={showPassword ? "text" : "password"}
@@ -211,7 +398,7 @@ export default function SignIn() {
                             value={auth.password}
                             name="password"
                             id="password"
-                            placeholder="Password"
+                            placeholder={t.passwordPlaceholder}
                             required
                         />
                         <button
@@ -230,16 +417,17 @@ export default function SignIn() {
                             onClick={handleOpenForgot}
                             className="forgot-pass-trigger"
                         >
-                            Forgot Password? Reset via OTP
+                            {t.forgotBtn}
                         </button>
                     </div>
 
                     <p className="grid1 note-text">
-                        <strong>First Time Sign-In:</strong> Enter your registered email/phone and your assigned temporary credentials. You will be prompted to set your personal security password upon first access.
+                        <strong>{t.firstTimeNoteTitle} </strong>
+                        {t.firstTimeNoteDesc}
                     </p>
 
                     <button type="submit" className="signin-submit-btn" disabled={loginLoading}>
-                        {loginLoading ? "Authenticating..." : "Sign In to Portal"}
+                        {loginLoading ? t.authenticating : t.signInBtn}
                     </button>
                 </form>
             </section>
@@ -250,11 +438,11 @@ export default function SignIn() {
                     <div className="forgot-modal-box">
                         <div className="forgot-modal-header">
                             <div>
-                                <h3>Reset Password</h3>
+                                <h3>{t.modalTitle}</h3>
                                 <p className="forgot-subtitle">
                                     {forgotStep === 1
-                                        ? "Step 1 of 2: Verify your registered email"
-                                        : "Step 2 of 2: Enter 6-digit OTP & new password"}
+                                        ? t.step1Sub
+                                        : t.step2Sub}
                                 </p>
                             </div>
                             <button
@@ -274,12 +462,12 @@ export default function SignIn() {
 
                         {forgotStep === 1 ? (
                             <form onSubmit={handleSendOtp} className="forgot-form-body">
-                                <label>Registered Email Address</label>
+                                <label>{t.emailLabel}</label>
                                 <input
                                     type="email"
                                     value={forgotEmail}
                                     onChange={(e) => setForgotEmail(e.target.value)}
-                                    placeholder="e.g. client@example.com"
+                                    placeholder={t.emailPlaceholder}
                                     required
                                     autoFocus
                                 />
@@ -289,68 +477,79 @@ export default function SignIn() {
                                         className="btn-cancel"
                                         onClick={() => setShowForgotModal(false)}
                                     >
-                                        Cancel
+                                        {t.cancelBtn}
                                     </button>
                                     <button
                                         type="submit"
                                         className="yellow-btn"
                                         disabled={forgotLoading}
                                     >
-                                        {forgotLoading ? "Sending OTP..." : "Send 6-Digit OTP"}
+                                        {forgotLoading ? t.sendingOtp : t.sendOtpBtn}
                                     </button>
                                 </div>
                             </form>
                         ) : (
                             <form onSubmit={handleResetPassword} className="forgot-form-body">
                                 <div className="email-badge-row">
-                                    <span>Sent to: <strong>{forgotEmail}</strong></span>
+                                    <span>{t.sentTo} <strong>{forgotEmail}</strong></span>
                                     <button
                                         type="button"
                                         className="btn-change-email"
                                         onClick={() => setForgotStep(1)}
                                     >
-                                        Change Email
+                                        {t.changeEmail}
                                     </button>
                                 </div>
 
-                                <label>6-Digit Verification Code (OTP)</label>
+                                <label>{t.otpLabel}</label>
                                 <input
                                     type="text"
                                     maxLength="6"
                                     value={forgotOtp}
                                     onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
-                                    placeholder="Enter 6-digit OTP"
+                                    placeholder={t.otpPlaceholder}
                                     required
                                     autoFocus
                                     className="otp-code-input"
                                 />
 
-                                <label>New Password</label>
+                                <label>{t.newPasswordLabel}</label>
                                 <div className="signin-pass-wrapper" style={{ width: "100%" }}>
                                     <input
                                         type={showNewPassword ? "text" : "password"}
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
-                                        placeholder="Min 4 characters"
+                                        placeholder={t.newPasswordPlaceholder}
                                         required
                                     />
                                     <button
                                         type="button"
                                         className="toggle-pass-btn"
                                         onClick={() => setShowNewPassword(!showNewPassword)}
+                                        title={showNewPassword ? "Hide password" : "Show password"}
                                     >
                                         {showNewPassword ? "👁️" : "🙈"}
                                     </button>
                                 </div>
 
-                                <label>Confirm New Password</label>
-                                <input
-                                    type={showNewPassword ? "text" : "password"}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Re-type new password"
-                                    required
-                                />
+                                <label>{t.confirmPasswordLabel}</label>
+                                <div className="signin-pass-wrapper" style={{ width: "100%" }}>
+                                    <input
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder={t.confirmPasswordPlaceholder}
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        className="toggle-pass-btn"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        title={showConfirmPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showConfirmPassword ? "👁️" : "🙈"}
+                                    </button>
+                                </div>
 
                                 <div className="forgot-modal-actions">
                                     <button
@@ -359,18 +558,129 @@ export default function SignIn() {
                                         onClick={handleSendOtp}
                                         disabled={forgotLoading}
                                     >
-                                        Resend Code
+                                        {t.resendCode}
                                     </button>
                                     <button
                                         type="submit"
                                         className="yellow-btn"
                                         disabled={forgotLoading}
                                     >
-                                        {forgotLoading ? "Resetting..." : "Reset Password"}
+                                        {forgotLoading ? t.resetting : t.resetPasswordBtn}
                                     </button>
                                 </div>
                             </form>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* ─── STAFF LOGIN: ADMIN AUTHORIZATION OTP MODAL ─── */}
+            {staffOtpModal.open && (
+                <div className="forgot-modal-overlay">
+                    <div className="forgot-modal-card" style={{ maxWidth: "480px" }}>
+                        <div className="forgot-modal-header" style={{ borderBottom: "2px solid #3b82f6" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <span style={{ fontSize: "24px" }}>🔐</span>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "#0f172a" }}>
+                                        Admin Authorization Required
+                                    </h3>
+                                    <span style={{ fontSize: "12px", color: "#2563eb", fontWeight: "700" }}>
+                                        Two-Tier Security Check for Staff Portal
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className="modal-close-btn"
+                                onClick={() => setStaffOtpModal(prev => ({ ...prev, open: false }))}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleVerifyStaffOtp} className="forgot-form" style={{ marginTop: "16px" }}>
+                            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px 16px", marginBottom: "16px" }}>
+                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a", marginBottom: "4px" }}>
+                                    Staff Member: <span style={{ color: "#2563eb" }}>{staffOtpModal.staffName}</span>
+                                </div>
+                                <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#475569", lineHeight: "1.6" }}>
+                                    Your password has been verified. To complete sign-in, an authorization code was dispatched to Admin at <strong>{staffOtpModal.adminEmailMasked}</strong>.
+                                </p>
+                                <p style={{ margin: "6px 0 0 0", fontSize: "11.5px", color: "#64748b" }}>
+                                    👉 Please obtain the 6-digit OTP from your Administrator to authorize this session.
+                                </p>
+                            </div>
+
+                            {staffOtpModal.successMsg && (
+                                <div className="forgot-msg success" style={{ marginBottom: "14px" }}>
+                                    ✓ {staffOtpModal.successMsg}
+                                </div>
+                            )}
+
+                            {staffOtpModal.error && (
+                                <div className="forgot-msg error" style={{ marginBottom: "14px" }}>
+                                    ⚠️ {staffOtpModal.error}
+                                </div>
+                            )}
+
+                            <label style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b", marginBottom: "6px", display: "block" }}>
+                                Enter 6-Digit Admin Authorization Code:
+                            </label>
+                            <input
+                                type="text"
+                                maxLength={6}
+                                autoFocus
+                                value={staffOtpModal.otp}
+                                onChange={(e) => setStaffOtpModal(prev => ({ ...prev, otp: e.target.value.replace(/\D/g, "") }))}
+                                placeholder="• • • • • •"
+                                style={{
+                                    textAlign: "center",
+                                    fontSize: "24px",
+                                    fontWeight: "900",
+                                    letterSpacing: "8px",
+                                    padding: "12px",
+                                    border: "2px solid #3b82f6",
+                                    borderRadius: "10px",
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    background: "#f0fdf4",
+                                    color: "#1e3a8a",
+                                    marginBottom: "18px"
+                                }}
+                                required
+                            />
+
+                            <div className="forgot-modal-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                                <button
+                                    type="button"
+                                    className="btn-cancel"
+                                    onClick={handleResendStaffOtp}
+                                    disabled={staffOtpModal.resending || staffOtpModal.loading}
+                                    style={{ fontSize: "12px" }}
+                                >
+                                    {staffOtpModal.resending ? "Resending..." : "Resend Code to Admin"}
+                                </button>
+                                <div style={{ display: "flex", gap: "8px" }}>
+                                    <button
+                                        type="button"
+                                        className="btn-cancel"
+                                        onClick={() => setStaffOtpModal(prev => ({ ...prev, open: false }))}
+                                        disabled={staffOtpModal.loading}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="yellow-btn"
+                                        disabled={staffOtpModal.loading || staffOtpModal.otp.length !== 6}
+                                        style={{ background: "#2563eb", color: "#fff", fontWeight: "800" }}
+                                    >
+                                        {staffOtpModal.loading ? "Verifying..." : "Authorize & Sign In"}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

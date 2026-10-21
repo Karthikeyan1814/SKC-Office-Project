@@ -12,13 +12,31 @@ import {
   HiOutlineArrowRight,
   HiOutlineInbox,
   HiOutlineTrash,
+  HiOutlineSpeakerWave,
+  HiOutlineSpeakerXMark,
 } from "react-icons/hi2";
+import NotificationSettingsModal from "../../components/NotificationSettingsModal";
+import { isSoundEnabled } from "../../utils/notificationSound";
 
 export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL"); // ALL | UNREAD | MEMBERSHIP | FILES
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleSoundChange = (e) => {
+      if (e?.detail?.soundEnabled !== undefined) {
+        setSoundOn(e.detail.soundEnabled);
+      } else {
+        setSoundOn(isSoundEnabled());
+      }
+    };
+    window.addEventListener("skc-sound-settings-changed", handleSoundChange);
+    return () => window.removeEventListener("skc-sound-settings-changed", handleSoundChange);
+  }, []);
 
   const fetchNotifs = async () => {
     setLoading(true);
@@ -176,6 +194,28 @@ export default function AdminNotificationsPage() {
         </div>
 
         <div className="admin-notif-actions">
+          <button
+            onClick={() => setIsSettingsModalOpen(true)}
+            style={{
+              padding: "8px 14px",
+              background: soundOn ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+              border: `1px solid ${soundOn ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+              color: soundOn ? "#10b981" : "#ef4444",
+              borderRadius: "10px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "7px",
+              cursor: "pointer",
+              fontWeight: "700",
+              fontSize: "12.5px",
+            }}
+            title="Notification Sound & Desktop Alert Settings"
+            id="admin-notif-sound-btn"
+          >
+            {soundOn ? <HiOutlineSpeakerWave size={16} /> : <HiOutlineSpeakerXMark size={16} />}
+            <span>Sound {soundOn ? "ON" : "OFF"}</span>
+          </button>
+
           <button
             onClick={fetchNotifs}
             disabled={loading}
@@ -344,6 +384,12 @@ export default function AdminNotificationsPage() {
           </div>
         )}
       </div>
+
+      {/* Sound & Alert Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+      />
     </div>
   );
 }

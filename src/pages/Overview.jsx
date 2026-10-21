@@ -40,6 +40,22 @@ export default function Overview() {
     pendingMemberships: 0,
   });
 
+  const [firmInfo, setFirmInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem("skc_firm_info");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      name: "Sri Kathiravan & Co.",
+      bankName: "HDFC Bank Ltd",
+      accountName: "Sri Kathiravan & Co.",
+      accountNumber: "50200084729103",
+      ifscCode: "HDFC0001234",
+      branch: "Salem Main Branch",
+      upiId: "8825750992@upi",
+    };
+  });
+
   const [importantFiles, setImportantFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -144,9 +160,23 @@ export default function Overview() {
     }
   };
 
+  const fetchFirmDetails = async () => {
+    try {
+      const res = await api.get("/Public/FirmDetails");
+      if (res.data) {
+        setFirmInfo(res.data);
+        try {
+          localStorage.setItem("skc_firm_info", JSON.stringify(res.data));
+        } catch {}
+      }
+    } catch (e) {
+      console.warn("Public firm details fetch warning:", e);
+    }
+  };
+
   const handleSyncAll = async () => {
     setSyncing(true);
-    await Promise.allSettled([fetchStats(), fetchPriorityDocs(), fetchImportantFiles()]);
+    await Promise.allSettled([fetchStats(), fetchPriorityDocs(), fetchImportantFiles(), fetchFirmDetails()]);
     setSyncing(false);
   };
 
@@ -154,6 +184,7 @@ export default function Overview() {
     fetchStats();
     fetchPriorityDocs();
     fetchImportantFiles();
+    fetchFirmDetails();
   }, []);
 
   const goToCategory = (catKey) => {
@@ -827,6 +858,107 @@ export default function Overview() {
             <div style={{ fontSize: "11.5px", color: "#64748b" }}>Email &amp; In-app alerts</div>
           </div>
         </button>
+
+        <button
+          className="overview-shortcut-btn"
+          onClick={() => navigate("/Admin/Billing")}
+        >
+          <div className="overview-shortcut-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+            <HiOutlineBanknotes size={18} />
+          </div>
+          <div>
+            <div style={{ fontWeight: "700" }}>Billing &amp; Invoices</div>
+            <div style={{ fontSize: "11.5px", color: "#64748b" }}>Tax invoices &amp; receipts</div>
+          </div>
+        </button>
+      </div>
+
+      {/* ── Official Remittance & Settlement Account Banner ── */}
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: "16px",
+          border: "1.5px solid #e2e8f0",
+          padding: "20px 24px",
+          marginBottom: "28px",
+          boxShadow: "0 4px 16px rgba(15, 23, 42, 0.04)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
+          <div>
+            <h3 style={{ margin: "0 0 4px 0", fontSize: "16px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+              <HiOutlineBanknotes size={20} color="#2563eb" />
+              Active Firm Remittance &amp; Bank Settlement Account ({firmInfo.name || "Sri Kathiravan & Co."})
+            </h3>
+            <p style={{ margin: 0, fontSize: "12.5px", color: "#64748b" }}>
+              Official bank and UPI channels broadcasted across all invoices, client billing, and receipts
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(firmInfo.accountNumber || "");
+                toast.success("Copied account number to clipboard!");
+              }}
+              style={{
+                padding: "6px 12px",
+                background: "#f1f5f9",
+                color: "#334155",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+            >
+              Copy A/C No
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/Admin/Profile")}
+              style={{
+                padding: "6px 14px",
+                background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              Update in Profile &rarr;
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "13px" }}>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>Settlement Bank</span>
+            <strong style={{ color: "#0f172a" }}>{firmInfo.bankName || "HDFC Bank Ltd"}</strong>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>Beneficiary Name</span>
+            <strong style={{ color: "#0f172a" }}>{firmInfo.accountName || "Sri Kathiravan & Co."}</strong>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>Account Number</span>
+            <strong style={{ color: "#1e40af", letterSpacing: "0.5px" }}>{firmInfo.accountNumber || "50200084729103"}</strong>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>IFSC &amp; Branch</span>
+            <strong style={{ color: "#0f172a" }}>{firmInfo.ifscCode || "HDFC0001234"}</strong> {firmInfo.branch && `(${firmInfo.branch})`}
+          </div>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>Verified Firm UPI</span>
+            <strong style={{ color: "#166534" }}>{firmInfo.upiId || "8825750992@upi"}</strong>
+          </div>
+        </div>
       </div>
 
       {/* ── Document Vault Categories Hub ─────────────────────── */}

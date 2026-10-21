@@ -399,3 +399,82 @@
 .overview-category-card:hover .overview-category-action {
   gap: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADMIN OVERVIEW MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .overview-cont {
+    padding: 10px 4px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .overview-hero-card {
+    padding: 20px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    border-radius: 14px;
+  }
+
+  .overview-hero-right {
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 12px;
+  }
+
+  .overview-clock-time {
+    font-size: 22px;
+  }
+
+  .overview-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .overview-shortcuts-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .overview-categories-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .overview-cont {
+    padding: 6px 2px;
+  }
+
+  .overview-greeting-title {
+    font-size: 19px;
+  }
+
+  .overview-greeting-sub {
+    font-size: 12px;
+  }
+
+  .overview-metric-card {
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  .overview-metric-num {
+    font-size: 26px;
+  }
+
+  .overview-categories-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-category-card {
+    padding: 14px 12px;
+  }
+}

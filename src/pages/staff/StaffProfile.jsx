@@ -43,6 +43,7 @@ export default function StaffProfile() {
   });
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -341,14 +342,24 @@ export default function StaffProfile() {
 
               <div className="staff-form-group">
                 <label className="staff-form-label">Confirm New Password *</label>
-                <input
-                  type={showNewPass ? "text" : "password"}
-                  required
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  placeholder="Re-type new password"
-                  className="staff-form-input"
-                />
+                <div className="staff-pass-wrapper">
+                  <input
+                    type={showConfirmPass ? "text" : "password"}
+                    required
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    placeholder="Re-type new password"
+                    className="staff-form-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                    className="staff-pass-toggle"
+                    title={showConfirmPass ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPass ? <HiOutlineEyeSlash size={18} /> : <HiOutlineEye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
 

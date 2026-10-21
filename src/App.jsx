@@ -20,11 +20,13 @@ import ClientDetails from './pages/ClientDetails'
 import CustomizableClientForm from './pages/Settings/CustomizableClientForm'
 import HomePageMasterSettings from './pages/admin/HomePageMasterSettings'
 import FileManagementPage from './pages/admin/FileManagementPage'
+import BillingInvoiceReceiptPage from './pages/admin/BillingInvoiceReceiptPage'
 import MembershipManagePage from './pages/admin/MembershipManagePage'
 import AccessManagementPage from './pages/admin/AccessManagementPage'
 import AdminAppointmentsPage from './pages/admin/AdminAppointmentsPage'
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage'
 import AdminProfilePage from './pages/admin/AdminProfilePage'
+import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 
 // Staff Pages
 import StaffOverview from './pages/staff/StaffOverview'
@@ -42,6 +44,7 @@ import ClientNotifications from './pages/client/ClientNotifications'
 import ClientProfile from './pages/client/ClientProfile'
 import ClientMembership from './pages/client/ClientMembership'
 import ClientMembershipRequest from './pages/client/ClientMembershipRequest'
+import ClientBillingPage from './pages/client/ClientBillingPage'
 
 // Utils
 import LoadingAnimation from './components/LoadingAnimation'
@@ -49,10 +52,33 @@ import NotFoundPage from './pages/NotFoundPage'
 import UnauthorizedPage from './pages/UnauthorizedPage'
 
 // Global notification provider
+import { useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
 import ThemeCustomizerModal from './components/ThemeCustomizerModal'
+import { enforceTokenExpiryCheck } from './utils/tokenHelper'
 
 function App() {
+  useEffect(() => {
+    // Initial check on mount
+    enforceTokenExpiryCheck();
+
+    // Periodic check every 5 minutes
+    const interval = setInterval(() => {
+      enforceTokenExpiryCheck();
+    }, 5 * 60 * 1000);
+
+    // Check on window/tab focus
+    const handleFocus = () => {
+      enforceTokenExpiryCheck();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
   return (
     <>
       <ThemeCustomizerModal />
@@ -83,7 +109,7 @@ function App() {
         {/* ─── PUBLIC ROUTES ──────────────────────────────────── */}
         <Route path="/" element={<HomeRoute />}>
           <Route index element={<Home />} />
-          <Route path="membership" element={<Membership />} />
+          <Route path="membership" element={<Navigate to="/" replace />} />
           <Route path="actDetails" element={<ActDetails />} />
           <Route path="SignIn" element={<SignIn />} />
         </Route>
@@ -98,11 +124,14 @@ function App() {
             <Route path="HomePageCMS" element={<HomePageMasterSettings />} />
             <Route path="HomeContent" element={<HomePageMasterSettings />} />
             <Route path="FileManagement" element={<FileManagementPage />} />
+            <Route path="Billing" element={<BillingInvoiceReceiptPage />} />
+            <Route path="InvoiceReceipt" element={<BillingInvoiceReceiptPage />} />
             <Route path="Membership" element={<MembershipManagePage />} />
             <Route path="AccessManagement" element={<AccessManagementPage />} />
             <Route path="Appointments" element={<AdminAppointmentsPage />} />
             <Route path="Notifications" element={<AdminNotificationsPage />} />
             <Route path="Profile" element={<AdminProfilePage />} />
+            <Route path="Settings" element={<AdminSettingsPage />} />
           </Route>
         </Route>
 
@@ -128,6 +157,8 @@ function App() {
             <Route path="Profile" element={<ClientProfile />} />
             <Route path="Membership" element={<ClientMembership />} />
             <Route path="Membership-Request" element={<ClientMembershipRequest />} />
+            <Route path="Billing" element={<ClientBillingPage />} />
+            <Route path="Invoices" element={<ClientBillingPage />} />
           </Route>
         </Route>
 

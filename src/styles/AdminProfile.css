@@ -270,6 +270,43 @@
   transform: none;
 }
 
+/* ── Global Account Details Sync Button ───────────────────────── */
+.profile-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 28px;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 260px;
+}
+
+.profile-sync-btn:hover {
+  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45);
+}
+
+.profile-sync-btn:active {
+  transform: translateY(0);
+}
+
+.profile-sync-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* ── Permissions Overview Grid ────────────────────────────────── */
 .privilege-grid {
   display: grid;
@@ -313,4 +350,57 @@
   color: #64748b;
   line-height: 1.45;
   margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADMIN PROFILE MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .admin-profile-container {
+    padding: 10px 4px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .profile-hero-card {
+    padding: 20px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    border-radius: 14px;
+  }
+
+  .profile-hero-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .profile-card {
+    padding: 18px 14px;
+    border-radius: 12px;
+  }
+
+  .privilege-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .admin-profile-container {
+    padding: 6px 2px;
+  }
+
+  .profile-greeting-title {
+    font-size: 19px;
+  }
+
+  .profile-avatar-large {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
 }

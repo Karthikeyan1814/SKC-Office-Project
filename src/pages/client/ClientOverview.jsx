@@ -18,6 +18,10 @@ import {
   HiOutlinePaperAirplane,
   HiOutlinePhone,
   HiOutlineEnvelope,
+  HiOutlineDocumentText,
+  HiOutlineReceiptPercent,
+  HiOutlineBanknotes,
+  HiOutlineClipboardDocument,
 } from "react-icons/hi2";
 import toast from "react-hot-toast";
 
@@ -32,6 +36,23 @@ export default function ClientOverview() {
   const [reconsultNotes, setReconsultNotes] = useState("");
   const [submittingReconsult, setSubmittingReconsult] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [membershipEnabled, setMembershipEnabled] = useState(false);
+  const [billingSummary, setBillingSummary] = useState({ totalBilled: 0, totalPaid: 0, pendingDue: 0, invoicesCount: 0 });
+  const [firmInfo, setFirmInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem("skc_firm_info");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      name: "Sri Kathiravan & Co.",
+      bankName: "HDFC Bank Ltd",
+      accountName: "Sri Kathiravan & Co.",
+      accountNumber: "50200084729103",
+      ifscCode: "HDFC0001234",
+      branch: "Salem Main Branch",
+      upiId: "8825750992@upi",
+    };
+  });
 
   // Time-aware greeting
   const getGreeting = () => {
@@ -41,16 +62,29 @@ export default function ClientOverview() {
     return "Good evening";
   };
 
+  const handleCopy = (text, label) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    toast.success(`Copied ${label} to clipboard!`);
+  };
+
   const fetchDashboardData = async () => {
     try {
-      const [statusRes, filesRes, memRes, apptRes, notifRes, unreadRes] = await Promise.allSettled([
+      const [statusRes, filesRes, memRes, apptRes, notifRes, unreadRes, billingRes, firmRes, globalMemRes] = await Promise.allSettled([
         api.get("/Client/Status"),
         api.get("/Client/Files"),
         api.get("/Client/Membership/Status"),
         api.get("/Client/Appointments"),
         api.get("/Client/Notifications"),
         api.get("/Client/Notifications/UnreadCount"),
+        api.get("/Client/Billing/Summary"),
+        api.get("/Public/FirmDetails"),
+        api.get("/Public/Membership/GlobalSettings"),
       ]);
+
+      if (globalMemRes.status === "fulfilled" && globalMemRes.value.data) {
+        setMembershipEnabled(Boolean(globalMemRes.value.data.membershipEnabled));
+      }
 
       if (statusRes.status === "fulfilled" && statusRes.value.data) {
         setClientStatus(statusRes.value.data);
@@ -66,6 +100,25 @@ export default function ClientOverview() {
       if (apptRes.status === "fulfilled") setAppointmentsCount(apptRes.value.data?.length || 0);
       if (notifRes.status === "fulfilled") setRecentNotifs((notifRes.value.data || []).slice(0, 3));
       if (unreadRes.status === "fulfilled") setUnreadCount(unreadRes.value.data?.count || 0);
+
+      if (billingRes.status === "fulfilled" && billingRes.value.data) {
+        const b = billingRes.value.data;
+        if (b.documentCount > 0 || b.totalBilled > 0) {
+          setBillingSummary({
+            totalBilled: b.totalBilled || 0,
+            totalPaid: b.totalPaid || 0,
+            pendingDue: b.totalPendingDue || 0,
+            invoicesCount: b.documentCount || 0,
+          });
+        }
+      }
+
+      if (firmRes.status === "fulfilled" && firmRes.value.data) {
+        setFirmInfo(firmRes.value.data);
+        try {
+          localStorage.setItem("skc_firm_info", JSON.stringify(firmRes.value.data));
+        } catch {}
+      }
     } catch (e) {
       console.error("Dashboard data load error", e);
     } finally {
@@ -75,7 +128,37 @@ export default function ClientOverview() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+
+    try {
+      const saved = localStorage.getItem("skc_billing_archive");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const clientMobile = localStorage.getItem("skc-mobile") || "";
+          const nameLower = clientName.toLowerCase();
+          const matched = parsed.filter((doc) => {
+            if (doc.isArchived) return false;
+            const docMobile = (doc.clientMobile || "").replace(/\D/g, "");
+            const userMobile = clientMobile.replace(/\D/g, "");
+            if (userMobile && docMobile === userMobile) return true;
+            if ((doc.clientName || "").toLowerCase().includes(nameLower)) return true;
+            if (nameLower.includes((doc.clientName || "").toLowerCase())) return true;
+            return false;
+          });
+          const targetDocs = matched.length > 0 ? matched : parsed.filter((d) => !d.isArchived);
+          const totalBilled = targetDocs.filter((d) => d.type === "INVOICE").reduce((sum, d) => sum + (Number(d.totalAmount) || 0), 0);
+          const totalPaid = targetDocs.reduce((sum, d) => sum + (Number(d.paidAmount) || 0), 0);
+          const pendingDue = targetDocs.filter((d) => d.type === "INVOICE" && (Number(d.remainingBalance) || 0) > 0).reduce((sum, d) => sum + (Number(d.remainingBalance) || 0), 0);
+          setBillingSummary({
+            totalBilled,
+            totalPaid,
+            pendingDue,
+            invoicesCount: targetDocs.length,
+          });
+        }
+      }
+    } catch {}
+  }, [clientName]);
 
   const handleRequestReconsultation = async (e) => {
     e.preventDefault();
@@ -166,7 +249,7 @@ export default function ClientOverview() {
               >
                 RESTRICTED PORTAL ACCESS
               </span>
-              <h1 style={{ margin: "0 0 6px 0", fontSize: "20px", fontWeight: "800", letterSpacing: "-0.3px" }}>
+              <h1 style={{ margin: "0 0 6px 0", fontSize: "20px", fontWeight: "800", letterSpacing: "-0.3px" ,color:"white" }}>
                 Account Temporarily Deactivated
               </h1>
               <p style={{ margin: 0, opacity: 0.9, fontSize: "13px", lineHeight: 1.5 }}>
@@ -410,7 +493,7 @@ export default function ClientOverview() {
             }}
           >
             <HiOutlineSparkles size={14} />
-            {isMember ? `${planType} VIP ACTIVE CLIENT` : "STANDARD CLIENT ACCOUNT"}
+            {membershipEnabled ? (isMember ? `${planType} VIP ACTIVE CLIENT` : "STANDARD CLIENT ACCOUNT") : "OFFICIAL CLIENT ACCOUNT"}
           </span>
 
           <h1 className="client-hero-title">
@@ -427,17 +510,23 @@ export default function ClientOverview() {
           <Link to="/Client/Files" className="btn-client-outline">
             <HiOutlineFolderOpen size={16} /> Open Document Vault
           </Link>
-          {isMember && !isExpired ? (
-            <Link to="/Client/Membership" className="btn-client-gold">
-              <HiOutlineSparkles size={16} /> My VIP Membership
-            </Link>
-          ) : isExpired ? (
-            <Link to="/Client/Membership-Request" className="btn-client-gold">
-              <HiOutlineSparkles size={16} /> Renew Membership
-            </Link>
+          {membershipEnabled ? (
+            isMember && !isExpired ? (
+              <Link to="/Client/Membership" className="btn-client-gold">
+                <HiOutlineSparkles size={16} /> My VIP Membership
+              </Link>
+            ) : isExpired ? (
+              <Link to="/Client/Membership-Request" className="btn-client-gold">
+                <HiOutlineSparkles size={16} /> Renew Membership
+              </Link>
+            ) : (
+              <Link to="/Client/Membership-Request" className="btn-client-gold">
+                <HiOutlineSparkles size={16} /> Apply for Membership
+              </Link>
+            )
           ) : (
-            <Link to="/Client/Membership-Request" className="btn-client-gold">
-              <HiOutlineSparkles size={16} /> Apply for Membership
+            <Link to="/Client/Appointments" className="btn-client-gold">
+              <HiOutlineCalendarDays size={16} /> Book Consultation
             </Link>
           )}
         </div>
@@ -459,14 +548,18 @@ export default function ClientOverview() {
           </div>
         </div>
 
-        {/* Metric 2: Membership */}
+        {/* Metric 2: Membership / Access */}
         <div className="client-stat-card">
           <div>
-            <p className="client-stat-label">Membership Tier</p>
-            <h3 className="client-stat-val" style={{ color: isMember ? (isExpired ? "#dc2626" : "#d97706") : "#475569" }}>
-              {isMember ? `${planType} Card` : "Free Tier"}
+            <p className="client-stat-label">{membershipEnabled ? "Membership Tier" : "Portal Access"}</p>
+            <h3 className="client-stat-val" style={{ color: !membershipEnabled ? "#059669" : isMember ? (isExpired ? "#dc2626" : "#d97706") : "#475569" }}>
+              {!membershipEnabled ? "Standard Access" : isMember ? `${planType} Card` : "Free Tier"}
             </h3>
-            {isMember && !isExpired ? (
+            {!membershipEnabled ? (
+              <Link to="/Client/Appointments" className="client-stat-link" style={{ color: "#059669" }}>
+                100% Free Access <HiOutlineArrowRight size={13} />
+              </Link>
+            ) : isMember && !isExpired ? (
               <Link to="/Client/Membership" className="client-stat-link" style={{ color: "#d97706" }}>
                 {daysLeft !== null ? `${daysLeft} Days Left • View Perks` : "View Privileges"} <HiOutlineArrowRight size={13} />
               </Link>
@@ -480,7 +573,7 @@ export default function ClientOverview() {
               </Link>
             )}
           </div>
-          <div className="client-stat-icon-wrap" style={{ background: isExpired ? "#fee2e2" : "#fef3c7", color: isExpired ? "#dc2626" : "#d97706" }}>
+          <div className="client-stat-icon-wrap" style={{ background: !membershipEnabled ? "#dcfce7" : isExpired ? "#fee2e2" : "#fef3c7", color: !membershipEnabled ? "#059669" : isExpired ? "#dc2626" : "#d97706" }}>
             <HiOutlineIdentification size={20} />
           </div>
         </div>
@@ -514,10 +607,118 @@ export default function ClientOverview() {
             <HiOutlineBell size={20} />
           </div>
         </div>
+
+        {/* Metric 5: Invoices & Real-Time Balance */}
+        <div className="client-stat-card" style={{ borderLeft: billingSummary.pendingDue <= 0 ? "4px solid #059669" : "4px solid #dc2626" }}>
+          <div>
+            <p className="client-stat-label">Invoices & Billing Balance</p>
+            <h3
+              className="client-stat-val"
+              style={{ color: billingSummary.pendingDue <= 0 ? "#15803d" : "#dc2626" }}
+            >
+              {billingSummary.pendingDue <= 0 ? "₹ 0.00 Due" : `₹ ${billingSummary.pendingDue.toLocaleString("en-IN")}`}
+            </h3>
+            <Link to="/Client/Billing" className="client-stat-link" style={{ color: "#2563eb", fontWeight: "700" }}>
+              {billingSummary.pendingDue <= 0 ? "All Cleared • View Invoices" : "Payment Due • View & Pay"} <HiOutlineArrowRight size={13} />
+            </Link>
+          </div>
+          <div
+            className="client-stat-icon-wrap"
+            style={{
+              background: billingSummary.pendingDue <= 0 ? "#ecfdf5" : "#fef2f2",
+              color: billingSummary.pendingDue <= 0 ? "#059669" : "#dc2626",
+            }}
+          >
+            <HiOutlineReceiptPercent size={20} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── OFFICIAL BANK REMITTANCE & PAYMENT CHANNELS WIDGET ── */}
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: "16px",
+          border: "1.5px solid #e2e8f0",
+          padding: "20px 24px",
+          marginBottom: "28px",
+          boxShadow: "0 4px 16px rgba(15, 23, 42, 0.04)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
+          <div>
+            <h3 style={{ margin: "0 0 4px 0", fontSize: "16px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+              <HiOutlineBanknotes size={20} color="#2563eb" />
+              Official Remittance & Bank Settlement Details ({firmInfo.name || "Sri Kathiravan & Co."})
+            </h3>
+            <p style={{ margin: 0, fontSize: "12.5px", color: "#64748b" }}>
+              Transfer advisory fee payments or retainers directly to verified firm bank channels
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => handleCopy(firmInfo.upiId, "Official UPI ID")}
+              style={{
+                padding: "6px 12px",
+                background: "#ecfdf5",
+                color: "#047857",
+                border: "1px solid #a7f3d0",
+                borderRadius: "8px",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              <HiOutlineClipboardDocument size={14} /> Copy UPI ({firmInfo.upiId})
+            </button>
+            <Link
+              to="/Client/Billing"
+              style={{
+                padding: "6px 12px",
+                background: "#eff6ff",
+                color: "#1e40af",
+                border: "1px solid #bfdbfe",
+                borderRadius: "8px",
+                fontWeight: "700",
+                fontSize: "12px",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              View Full Billing Ledger &rarr;
+            </Link>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "13px" }}>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>Beneficiary Bank</span>
+            <strong style={{ color: "#0f172a" }}>{firmInfo.bankName || "HDFC Bank Ltd"}</strong>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>Account Name</span>
+            <strong style={{ color: "#0f172a" }}>{firmInfo.accountName || "Sri Kathiravan & Co."}</strong>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>Account Number</span>
+            <strong style={{ color: "#1e40af", letterSpacing: "0.5px" }}>{firmInfo.accountNumber || "50200084729103"}</strong>
+          </div>
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>IFSC Code</span>
+            <strong style={{ color: "#0f172a" }}>{firmInfo.ifscCode || "HDFC0001234"}</strong> {firmInfo.branch && `(${firmInfo.branch})`}
+          </div>
+        </div>
       </div>
 
       {/* ── MEMBERSHIP TIER SELECTION (FOR NON-MEMBERS & EXPIRED) ── */}
-      {(!isMember || isExpired) && (
+      {membershipEnabled && (!isMember || isExpired) && (
         <div style={{ background: "#ffffff", borderRadius: "20px", padding: "26px 30px", border: "1.5px solid #fed7aa", boxShadow: "0 4px 20px rgba(249, 115, 22, 0.08)", marginBottom: "28px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px", flexWrap: "wrap", gap: "10px" }}>
             <div>
@@ -525,7 +726,7 @@ export default function ClientOverview() {
                 <HiOutlineSparkles size={14} /> CHOOSE YOUR MEMBERSHIP PLAN
               </span>
               <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
-                Select a Plan to Unlock Document Vault, Consultations &amp; VIP Perks
+                Select a Plan for Priority Admin Messaging, Dedicated CA Desk &amp; VIP Perks
               </h3>
             </div>
             <Link to="/Client/Membership-Request" style={{ padding: "8px 16px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff", borderRadius: "10px", fontWeight: "700", fontSize: "13px", textDecoration: "none" }}>
@@ -533,40 +734,28 @@ export default function ClientOverview() {
             </Link>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
-            {/* Silver */}
-            <div style={{ border: "1.5px solid #cbd5e1", borderRadius: "14px", padding: "18px", background: "#f8fafc" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-                <strong style={{ color: "#475569", fontSize: "16px" }}>Silver Plan</strong>
-                <span style={{ fontSize: "18px", fontWeight: "900", color: "#0f172a" }}>₹299<span style={{ fontSize: "11px", color: "#64748b" }}>/mo</span></span>
-              </div>
-              <p style={{ fontSize: "12.5px", color: "#64748b", margin: "0 0 14px", minHeight: "36px" }}>Standard Document Vault, GST Notice Guidance, Portal Notifications.</p>
-              <Link to="/Client/Membership-Request" style={{ display: "block", textAlign: "center", padding: "8px", background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", color: "#334155", fontWeight: "700", fontSize: "12.5px", textDecoration: "none" }}>
-                Choose Silver Plan
-              </Link>
-            </div>
-
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px" }}>
             {/* Gold */}
-            <div style={{ border: "2px solid #f59e0b", borderRadius: "14px", padding: "18px", background: "linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)", boxShadow: "0 4px 14px rgba(245, 158, 11, 0.15)", position: "relative" }}>
+            <div style={{ border: "2px solid #f59e0b", borderRadius: "14px", padding: "20px", background: "linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)", boxShadow: "0 4px 14px rgba(245, 158, 11, 0.15)", position: "relative" }}>
               <span style={{ position: "absolute", top: "-10px", right: "14px", background: "#f59e0b", color: "#fff", fontSize: "10px", fontWeight: "800", padding: "2px 8px", borderRadius: "999px" }}>POPULAR</span>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-                <strong style={{ color: "#d97706", fontSize: "16px" }}>Gold Plan</strong>
-                <span style={{ fontSize: "18px", fontWeight: "900", color: "#0f172a" }}>₹699<span style={{ fontSize: "11px", color: "#64748b" }}>/6mo</span></span>
+                <strong style={{ color: "#d97706", fontSize: "17px" }}>Gold Plan</strong>
+                <span style={{ fontSize: "19px", fontWeight: "900", color: "#0f172a" }}>₹699<span style={{ fontSize: "11px", color: "#64748b" }}>/6mo</span></span>
               </div>
-              <p style={{ fontSize: "12.5px", color: "#64748b", margin: "0 0 14px", minHeight: "36px" }}>24/7 VIP Meetings, Permanent File Downloads, Live Chat Support.</p>
-              <Link to="/Client/Membership-Request" style={{ display: "block", textAlign: "center", padding: "8px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff", borderRadius: "8px", fontWeight: "800", fontSize: "12.5px", textDecoration: "none", boxShadow: "0 2px 8px rgba(245, 158, 11, 0.3)" }}>
+              <p style={{ fontSize: "12.5px", color: "#64748b", margin: "0 0 14px", minHeight: "36px" }}>Priority Messaging to Admin, Priority Document Review &amp; 24/7 VIP Meetings.</p>
+              <Link to="/Client/Membership-Request" style={{ display: "block", textAlign: "center", padding: "9px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff", borderRadius: "8px", fontWeight: "800", fontSize: "13px", textDecoration: "none", boxShadow: "0 2px 8px rgba(245, 158, 11, 0.3)" }}>
                 Choose Gold Plan
               </Link>
             </div>
 
             {/* Platinum */}
-            <div style={{ border: "1.5px solid #a855f7", borderRadius: "14px", padding: "18px", background: "linear-gradient(135deg, #faf5ff 0%, #ffffff 100%)" }}>
+            <div style={{ border: "2px solid #a855f7", borderRadius: "14px", padding: "20px", background: "linear-gradient(135deg, #faf5ff 0%, #ffffff 100%)", boxShadow: "0 4px 14px rgba(168, 85, 247, 0.15)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-                <strong style={{ color: "#9333ea", fontSize: "16px" }}>Platinum Plan</strong>
-                <span style={{ fontSize: "18px", fontWeight: "900", color: "#0f172a" }}>₹999<span style={{ fontSize: "11px", color: "#64748b" }}>/12mo</span></span>
+                <strong style={{ color: "#9333ea", fontSize: "17px" }}>Platinum Plan</strong>
+                <span style={{ fontSize: "19px", fontWeight: "900", color: "#0f172a" }}>₹999<span style={{ fontSize: "11px", color: "#64748b" }}>/12mo</span></span>
               </div>
-              <p style={{ fontSize: "12.5px", color: "#64748b", margin: "0 0 14px", minHeight: "36px" }}>Dedicated Senior CA, Unlimited Consultations, Permanent Vault + Rename.</p>
-              <Link to="/Client/Membership-Request" style={{ display: "block", textAlign: "center", padding: "8px", background: "linear-gradient(135deg, #a855f7, #7c3aed)", color: "#fff", borderRadius: "8px", fontWeight: "800", fontSize: "12.5px", textDecoration: "none", boxShadow: "0 2px 8px rgba(168, 85, 247, 0.3)" }}>
+              <p style={{ fontSize: "12.5px", color: "#64748b", margin: "0 0 14px", minHeight: "36px" }}>All Features Completely Unlocked, Dedicated CA Manager, 1-on-1 Video Meetings &amp; Zero-Wait Verification.</p>
+              <Link to="/Client/Membership-Request" style={{ display: "block", textAlign: "center", padding: "9px", background: "linear-gradient(135deg, #a855f7, #7c3aed)", color: "#fff", borderRadius: "8px", fontWeight: "800", fontSize: "13px", textDecoration: "none", boxShadow: "0 2px 8px rgba(168, 85, 247, 0.3)" }}>
                 Choose Platinum Plan
               </Link>
             </div>
@@ -591,7 +780,7 @@ export default function ClientOverview() {
                 <HiOutlineArrowUpTray size={18} />
               </div>
               <h4 className="client-action-heading">
-                Document Vault &amp; S3
+                Document Vault (Free Access)
               </h4>
             </div>
             <p className="client-action-desc">
@@ -604,83 +793,98 @@ export default function ClientOverview() {
         </Link>
 
         {/* Action 2: Appointments */}
-        <Link to={isMember ? "/Client/Appointments" : "/Client/Membership-Request"} className="client-action-card">
+        <Link to="/Client/Appointments" className="client-action-card">
           <div>
             <div className="client-action-top">
               <div className="client-action-icon" style={{ background: "var(--lite, #f5f3ff)", color: "var(--primary, #7c3aed)" }}>
                 <HiOutlineCalendarDays size={18} />
               </div>
               <h4 className="client-action-heading">
-                {isMember
-                  ? (planType === "PLATINUM" || planType === "GOLD" ? "24/7 VIP Consultation" : "Office Consultation")
-                  : "Consultations (Plan Required)"}
+                {membershipEnabled && isMember && (planType === "PLATINUM" || planType === "GOLD")
+                  ? "24/7 VIP Consultation"
+                  : "Office Consultation (Free)"}
               </h4>
             </div>
             <p className="client-action-desc">
-              {isMember
-                ? (planType === "PLATINUM" || planType === "GOLD" ? "Book private 1-on-1 consultations 24 hours a day, 7 days a week." : "Schedule consultation sessions during standard office hours.")
-                : "Direct CA consultations require an active membership plan. Select Silver, Gold, or Platinum to book."}
+              Schedule direct Chartered Accountant consultations for tax filings, GST returns, or regulatory audits. Free booking for all clients.
             </p>
           </div>
           <div className="client-action-foot" style={{ color: "var(--primary, #7c3aed)" }}>
-            {isMember ? "Book Preferred Timeline" : "Choose Plan to Unlock"} <HiOutlineArrowRight size={13} />
+            Book Consultation <HiOutlineArrowRight size={13} />
           </div>
         </Link>
 
-        {/* Action 3: Dynamically routed to perks if active member */}
-        {isMember && !isExpired ? (
-          <Link to="/Client/Membership" className="client-action-card">
-            <div>
-              <div className="client-action-top">
-                <div className="client-action-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
-                  <HiOutlineIdentification size={18} />
+        {/* Action 3: Dynamically routed to perks or Billing */}
+        {membershipEnabled ? (
+          isMember && !isExpired ? (
+            <Link to="/Client/Membership" className="client-action-card">
+              <div>
+                <div className="client-action-top">
+                  <div className="client-action-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
+                    <HiOutlineIdentification size={18} />
+                  </div>
+                  <h4 className="client-action-heading">{planType} VIP Privileges</h4>
                 </div>
-                <h4 className="client-action-heading">{planType} VIP Privileges</h4>
+                <p className="client-action-desc">
+                  {planType === "PLATINUM"
+                    ? "All features unlocked: Dedicated Senior CA, Unlimited Consultations, Permanent Vault."
+                    : "Priority Messaging to Admin, Priority Document Review & Fast Response Desk."}
+                </p>
               </div>
-              <p className="client-action-desc">
-                {planType === "PLATINUM"
-                  ? "Dedicated Senior CA, Unlimited Consultations, Permanent Vault."
-                  : planType === "GOLD"
-                  ? "24/7 Priority Meetings, Expiration-Free Downloads, Priority Live Desk."
-                  : "GST Notice Response Assistance & Standard Document Archive."}
-              </p>
-            </div>
-            <div className="client-action-foot" style={{ color: "#d97706" }}>
-              View Member Privileges <HiOutlineArrowRight size={13} />
-            </div>
-          </Link>
-        ) : isExpired ? (
-          <Link to="/Client/Membership-Request" className="client-action-card">
-            <div>
-              <div className="client-action-top">
-                <div className="client-action-icon" style={{ background: "#fee2e2", color: "#dc2626" }}>
-                  <HiOutlineIdentification size={18} />
+              <div className="client-action-foot" style={{ color: "#d97706" }}>
+                View Member Privileges <HiOutlineArrowRight size={13} />
+              </div>
+            </Link>
+          ) : isExpired ? (
+            <Link to="/Client/Membership-Request" className="client-action-card">
+              <div>
+                <div className="client-action-top">
+                  <div className="client-action-icon" style={{ background: "#fee2e2", color: "#dc2626" }}>
+                    <HiOutlineIdentification size={18} />
+                  </div>
+                  <h4 className="client-action-heading">Renew VIP Membership</h4>
                 </div>
-                <h4 className="client-action-heading">Renew VIP Membership</h4>
+                <p className="client-action-desc">
+                  Your annual membership has concluded. Renew your package to maintain uninterrupted VIP perks.
+                </p>
               </div>
-              <p className="client-action-desc">
-                Your annual membership has concluded. Renew your package to maintain uninterrupted VIP perks.
-              </p>
-            </div>
-            <div className="client-action-foot" style={{ color: "#dc2626" }}>
-              Renew Membership Now <HiOutlineArrowRight size={13} />
-            </div>
-          </Link>
+              <div className="client-action-foot" style={{ color: "#dc2626" }}>
+                Renew Membership Now <HiOutlineArrowRight size={13} />
+              </div>
+            </Link>
+          ) : (
+            <Link to="/Client/Membership-Request" className="client-action-card">
+              <div>
+                <div className="client-action-top">
+                  <div className="client-action-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
+                    <HiOutlineIdentification size={18} />
+                  </div>
+                  <h4 className="client-action-heading">Apply for Membership</h4>
+                </div>
+                <p className="client-action-desc">
+                  Unlock priority messaging to admin, dedicated CA desk, and round-the-clock VIP advisory.
+                </p>
+              </div>
+              <div className="client-action-foot" style={{ color: "#d97706" }}>
+                Explore VIP Packages <HiOutlineArrowRight size={13} />
+              </div>
+            </Link>
+          )
         ) : (
-          <Link to="/Client/Membership-Request" className="client-action-card">
+          <Link to="/Client/Billing" className="client-action-card">
             <div>
               <div className="client-action-top">
-                <div className="client-action-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
-                  <HiOutlineIdentification size={18} />
+                <div className="client-action-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+                  <HiOutlineReceiptPercent size={18} />
                 </div>
-                <h4 className="client-action-heading">Apply for Membership</h4>
+                <h4 className="client-action-heading">Invoices & Statements (Free)</h4>
               </div>
               <p className="client-action-desc">
-                Activate permanent document retention, 24/7 priority meetings, and dedicated CA support.
+                Review verified billing invoices, settlement receipts, and net payable statements issued by SKC accounting desk.
               </p>
             </div>
-            <div className="client-action-foot" style={{ color: "#d97706" }}>
-              Explore VIP Packages <HiOutlineArrowRight size={13} />
+            <div className="client-action-foot" style={{ color: "#059669" }}>
+              View Billing Hub <HiOutlineArrowRight size={13} />
             </div>
           </Link>
         )}

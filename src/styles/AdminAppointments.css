@@ -553,3 +553,72 @@
   from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADMIN APPOINTMENTS MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .admin-appt-container {
+    padding: 10px 4px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .admin-appt-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .admin-appt-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .admin-appt-actions button {
+    flex: 1;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .appt-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .appt-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    border-radius: 10px;
+  }
+
+  .appt-table-container table {
+    min-width: 550px;
+  }
+
+  .appt-modal-box {
+    width: 96% !important;
+    max-width: 96% !important;
+    padding: 18px 14px !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .admin-appt-container {
+    padding: 6px 2px;
+  }
+
+  .admin-appt-heading {
+    font-size: 19px;
+  }
+
+  .appt-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

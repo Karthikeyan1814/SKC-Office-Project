@@ -54,11 +54,6 @@ export default function Nav() {
 
                 
                 <NavLink to="actDetails"><li>Act File</li></NavLink>
-                
-                
-                <NavLink to="/membership" onClick={() => setOpen(false)}>
-                    <li>Membership</li>
-                </NavLink>
 
                 <li
                     style={{ cursor: "pointer", color: "goldenrod", fontWeight: "700" }}

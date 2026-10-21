@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { FaSearch } from "react-icons/fa";
 import {
     HiOutlineArrowUpTray,
@@ -12,6 +12,7 @@ import File from "./File";
 import "../styles/FileLayout.css";
 import api from "../api/axiosInstance";
 import toast from "react-hot-toast";
+import FileUploadProgress from "../components/FileUploadProgress";
 import { triggerBrowserDownload, extractFileNameFromHeaders } from "../utils/fileDownloader";
 
 export default function FilesLayout({
@@ -27,6 +28,11 @@ export default function FilesLayout({
     const [customFileName, setCustomFileName] = useState("");
     const [targetAudience, setTargetAudience] = useState("PERSONAL");
     const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
+    const [uploadPhase, setUploadPhase] = useState("IDLE"); // 'IDLE' | 'UPLOADING' | 'PROCESSING' | 'SUCCESS' | 'ERROR'
+    const [uploadErrorMsg, setUploadErrorMsg] = useState("");
+    const uploadAbortRef = useRef(null);
 
     // Rename state & modal
     const [renamingFile, setRenamingFile] = useState(null);
@@ -110,6 +116,14 @@ export default function FilesLayout({
         }
 
         setUploading(true);
+        setUploadProgress(0);
+        setUploadBytes({ loaded: 0, total: uploadFile.size || 0 });
+        setUploadPhase("UPLOADING");
+        setUploadErrorMsg("");
+
+        const abortController = new AbortController();
+        uploadAbortRef.current = abortController;
+
         try {
             const formData = new FormData();
             formData.append("file", uploadFile);
@@ -122,23 +136,60 @@ export default function FilesLayout({
             const uploadUrl = isAdmin ? "/Admin/FileManagement/Upload" : "/Staff/FileManagement/Upload";
             const res = await api.post(uploadUrl, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
+                timeout: 0, // Disable timeout to support large file uploads without premature abort
+                signal: abortController.signal,
+                onUploadProgress: (progressEvent) => {
+                    if (progressEvent.total) {
+                        const percent = Math.min(99, Math.round((progressEvent.loaded * 100) / progressEvent.total));
+                        setUploadProgress(percent);
+                        setUploadBytes({ loaded: progressEvent.loaded, total: progressEvent.total });
+                        if (progressEvent.loaded >= progressEvent.total) {
+                            setUploadProgress(100);
+                            setUploadPhase("PROCESSING");
+                        }
+                    }
+                },
             });
 
             if (res.data?.status === "success") {
+                setUploadPhase("SUCCESS");
+                setUploadProgress(100);
                 const dest = targetAudience === "STAFF" ? "Staff Members" : "Personal Storage";
                 toast.success(`Important file saved to ${dest}!`);
-                setShowUploadModal(false);
-                setUploadFile(null);
-                setCustomFileName("");
-                if (onRefresh) onRefresh();
+                setTimeout(() => {
+                    setShowUploadModal(false);
+                    setUploadFile(null);
+                    setCustomFileName("");
+                    setUploadPhase("IDLE");
+                    setUploadProgress(0);
+                    if (onRefresh) onRefresh();
+                }, 800);
             } else {
-                toast.error(res.data?.message || "Upload failed");
+                setUploadPhase("ERROR");
+                const errMsg = res.data?.message || "Upload failed";
+                setUploadErrorMsg(errMsg);
+                toast.error(errMsg);
             }
         } catch (err) {
-            console.error(err);
-            toast.error("Failed to upload file to S3");
+            if (err.name === "CanceledError" || err.code === "ERR_CANCELED") {
+                toast.info("Upload cancelled");
+                setUploadPhase("IDLE");
+                setUploadProgress(0);
+            } else {
+                console.error(err);
+                setUploadPhase("ERROR");
+                const msg = err.response?.data?.message || err.message || "Failed to upload file to S3";
+                setUploadErrorMsg(msg);
+                toast.error(msg);
+            }
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleCancelFilesLayoutUpload = () => {
+        if (uploadAbortRef.current) {
+            uploadAbortRef.current.abort();
         }
     };
 
@@ -448,11 +499,39 @@ export default function FilesLayout({
                                 </div>
                             )}
 
+                            {/* Real-time File Upload Tracking Progress Bar with Animations */}
+                            <FileUploadProgress
+                                progress={uploadProgress}
+                                loadedBytes={uploadBytes.loaded}
+                                totalBytes={uploadBytes.total}
+                                phase={uploadPhase}
+                                fileName={customFileName || uploadFile?.name}
+                                destination={targetAudience === "STAFF" ? "Staff Members" : "Personal Storage"}
+                                errorMessage={uploadErrorMsg}
+                                onCancel={handleCancelFilesLayoutUpload}
+                                onRetry={handleUploadSubmit}
+                                theme="light"
+                            />
+
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
                                 <button
                                     type="button"
-                                    onClick={() => setShowUploadModal(false)}
-                                    style={{ padding: "8px 16px", background: "#f3f4f6", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600" }}
+                                    disabled={uploading}
+                                    onClick={() => {
+                                        if (uploading) return;
+                                        setShowUploadModal(false);
+                                        setUploadPhase("IDLE");
+                                        setUploadProgress(0);
+                                    }}
+                                    style={{
+                                        padding: "8px 16px",
+                                        background: "#f3f4f6",
+                                        color: uploading ? "#9ca3af" : "#374151",
+                                        border: "none",
+                                        borderRadius: "8px",
+                                        cursor: uploading ? "not-allowed" : "pointer",
+                                        fontWeight: "600"
+                                    }}
                                 >
                                     Cancel
                                 </button>
@@ -473,7 +552,11 @@ export default function FilesLayout({
                                     }}
                                 >
                                     <HiOutlineArrowUpTray size={16} />
-                                    {uploading ? "Uploading to S3..." : "Upload & Save"}
+                                    {uploadPhase === "PROCESSING"
+                                        ? "Securing in AWS S3..."
+                                        : uploading
+                                        ? `Uploading (${uploadProgress}%)`
+                                        : "Upload & Save"}
                                 </button>
                             </div>
                         </form>

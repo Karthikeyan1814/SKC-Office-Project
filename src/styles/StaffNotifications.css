@@ -371,3 +371,45 @@
   max-width: 400px;
   margin: 0 auto;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STAFF NOTIFICATIONS MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .staff-notif-container {
+    padding: 10px 4px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .staff-notif-header {
+    padding: 18px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    border-radius: 14px;
+  }
+
+  .staff-notif-card {
+    padding: 14px 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .staff-notif-container {
+    padding: 6px 2px;
+  }
+
+  .staff-notif-title {
+    font-size: 20px;
+  }
+
+  .staff-notif-chip {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}

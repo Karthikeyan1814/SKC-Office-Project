@@ -5,15 +5,55 @@
 
 .signin-container {
     min-height: calc(100vh - 80px);
-    padding: 60px 20px;
+    padding: 30px 20px 60px;
     width: 100%;
     font-family: var(--font2, 'Inter', sans-serif);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     background-color: var(--page-floor, #f8fafc);
     transition: background-color 0.3s ease;
     box-sizing: border-box;
+}
+
+.signin-top-bar {
+    max-width: 980px;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+    box-sizing: border-box;
+}
+
+.signin-translate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 9999px;
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+}
+
+.signin-translate-btn:hover {
+    border-color: #6366f1;
+    color: #4f46e5;
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.signin-translate-btn.active-tamil {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    color: #b45309;
 }
 
 .signIn-layout {
@@ -451,23 +491,156 @@
     to { opacity: 1; transform: scale(1); }
 }
 
+/* ── Translation Action Buttons ── */
+.signin-top-bar {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+}
+
+.signin-translate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #ffffff;
+    color: #1e293b;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.signin-translate-btn:hover {
+    background: #f8fafc;
+    border-color: #f59e0b;
+    color: #b45309;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2);
+}
+
+.signin-translate-btn.active-tamil {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    color: #fbbf24;
+    border-color: #f59e0b;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+}
+
+.signin-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.signin-inline-translate {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fcd34d;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.signin-inline-translate:hover {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: #f59e0b;
+    color: #ffffff;
+}
+
 @media screen and (max-width: 768px) {
+    .signin-container {
+        padding: 30px 14px;
+    }
+    .signin-top-bar {
+        justify-content: center;
+    }
     .signIn-layout {
         grid-template-columns: 1fr;
+        border-radius: 16px;
     }
     .signin-left {
-        padding: 35px 20px;
+        padding: 32px 20px;
         border-right: none;
         border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     }
     .signin-right {
-        padding: 35px 24px;
+        padding: 30px 20px;
         grid-template-columns: 1fr;
+        gap: 16px;
     }
     .grid1 {
         grid-column: span 1;
     }
     .signin-submit-btn {
         grid-column: span 1;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .signin-container {
+        padding: 16px 8px;
+    }
+    .signin-left {
+        padding: 24px 14px;
+    }
+    .signin-left h1 {
+        font-size: 18px;
+    }
+    .signin-left img {
+        max-height: 65px;
+        margin-bottom: 14px;
+    }
+    .signin-portal-badge {
+        font-size: 10px;
+        padding: 3px 10px;
+    }
+    .signin-left p {
+        font-size: 12px;
+    }
+    .signin-right {
+        padding: 20px 14px;
+        gap: 12px;
+    }
+    .signin-title {
+        font-size: 20px;
+    }
+    .sign-role-cont {
+        gap: 4px;
+        padding: 4px;
+    }
+    .role-btn {
+        font-size: 11.5px;
+        padding: 7px 4px;
+    }
+    .forgot-modal-box {
+        padding: 18px 14px;
+        width: 95%;
+        max-width: 95%;
+        border-radius: 14px;
+    }
+    .otp-code-input {
+        font-size: 1.15rem !important;
+        letter-spacing: 4px;
+    }
+    .forgot-modal-actions {
+        flex-direction: column-reverse;
+        gap: 8px;
+    }
+    .btn-cancel, .yellow-btn {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
     }
 }

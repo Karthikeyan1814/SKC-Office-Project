@@ -1,11 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api/axiosInstance";
 import toast from "react-hot-toast";
 import "../../styles/ClientPortal.css";
+import FileUploadProgress from "../../components/FileUploadProgress";
 import { triggerBrowserDownload, extractFileNameFromHeaders } from "../../utils/fileDownloader";
+import { FaWhatsapp, FaEnvelope, FaShareAlt } from "react-icons/fa";
 import {
   HiOutlineFolderOpen,
+  HiOutlineEye,
   HiOutlineArrowDownTray,
   HiOutlineArrowUpTray,
   HiOutlinePencilSquare,
@@ -26,12 +29,37 @@ export default function ClientFilesPage() {
   const [isMember, setIsMember] = useState(false);
   const [membershipData, setMembershipData] = useState(null);
 
+  // Folders state
+  const [folders, setFolders] = useState([]);
+  const [selectedFolderId, setSelectedFolderId] = useState("ALL");
+  const [uploadFolderId, setUploadFolderId] = useState("");
+  const [uploadFolderName, setUploadFolderName] = useState("");
+
   // Upload modal state
   const [showUpload, setShowUpload] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
   const [customUploadFileName, setCustomUploadFileName] = useState("");
+
+  // Inline Document Viewer State for Client
+  const [viewingFile, setViewingFile] = useState(null);
+
+  // Document Sharing State for Client (WhatsApp & Personal Email)
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharingFile, setSharingFile] = useState(null);
   const [category, setCategory] = useState("COMPLIANCE");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
+  const [uploadPhase, setUploadPhase] = useState("IDLE"); // 'IDLE' | 'UPLOADING' | 'PROCESSING' | 'SUCCESS' | 'ERROR'
+  const [uploadErrorMsg, setUploadErrorMsg] = useState("");
+  const uploadAbortRef = useRef(null);
+
+  const fetchFolders = async () => {
+    try {
+      const res = await api.get("/Client/Folders");
+      setFolders(res.data || []);
+    } catch {}
+  };
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -55,10 +83,51 @@ export default function ClientFilesPage() {
 
   useEffect(() => {
     fetchFiles();
+    fetchFolders();
     checkMembership();
   }, []);
 
   const planType = (membershipData?.membershipPlan || "").toUpperCase();
+
+  // Inline File Viewer for Client
+  const handleClientViewFile = async (f) => {
+    try {
+      toast.loading(`Loading ${f.fileName} for preview...`, { id: "client-view" });
+      const res = await api.get(`/Client/Files/${f.id}/View`, { responseType: "blob" });
+      const blobUrl = URL.createObjectURL(res.data);
+      toast.dismiss("client-view");
+      setViewingFile({ ...f, url: blobUrl });
+    } catch {
+      toast.dismiss("client-view");
+      toast.error("Failed to load document preview");
+    }
+  };
+
+  // Client Document Sharing Handlers
+  const openShareModal = (f) => {
+    setSharingFile(f);
+    setShowShareModal(true);
+  };
+
+  const handleWhatsAppShare = (f) => {
+    const text = `*SKC Client Document Share*\n📄 *Document:* ${f.fileName}\n📁 *Folder:* ${f.folderName || "General"}\n\nShared via SKC Client Portal: ${window.location.origin}`;
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, "_blank");
+  };
+
+  const handleEmailShare = (f) => {
+    const subject = encodeURIComponent(`Document: ${f.fileName}`);
+    const body = encodeURIComponent(`Hello,\n\nPlease find the reference for document "${f.fileName}" from SKC Office Client Portal.\n\nPortal Link: ${window.location.origin}\n\nRegards,`);
+    const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
+    window.location.href = mailtoUrl;
+  };
+
+  const handleGmailWebShare = (f) => {
+    const subject = encodeURIComponent(`Document: ${f.fileName}`);
+    const body = encodeURIComponent(`Hello,\n\nPlease find the reference for document "${f.fileName}" from SKC Office Client Portal.\n\nPortal Link: ${window.location.origin}\n\nRegards,`);
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
+    window.open(gmailUrl, "_blank");
+  };
 
   const handleDownload = async (fileId, fileName) => {
     try {
@@ -96,6 +165,14 @@ export default function ClientFilesPage() {
     }
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadBytes({ loaded: 0, total: uploadFile.size || 0 });
+    setUploadPhase("UPLOADING");
+    setUploadErrorMsg("");
+
+    const abortController = new AbortController();
+    uploadAbortRef.current = abortController;
+
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
@@ -104,25 +181,70 @@ export default function ClientFilesPage() {
         formData.append("customFileName", customUploadFileName.trim());
       }
 
+      if (uploadFolderId) {
+        formData.append("folderId", uploadFolderId);
+      }
+      if (uploadFolderName) {
+        formData.append("folderName", uploadFolderName);
+      }
+
       const res = await api.post("/Client/Files/Upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 0, // Disable timeout to support large file uploads without premature abort
+        signal: abortController.signal,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percent = Math.min(99, Math.round((progressEvent.loaded * 100) / progressEvent.total));
+            setUploadProgress(percent);
+            setUploadBytes({ loaded: progressEvent.loaded, total: progressEvent.total });
+            if (progressEvent.loaded >= progressEvent.total) {
+              setUploadProgress(100);
+              setUploadPhase("PROCESSING");
+            }
+          }
+        },
       });
 
       if (res.data?.status === "success") {
+        setUploadPhase("SUCCESS");
+        setUploadProgress(100);
         toast.success("File uploaded to your portal and admins notified!");
-        setShowUpload(false);
-        setUploadFile(null);
-        setCustomUploadFileName("");
-        fetchFiles();
+        setTimeout(() => {
+          setShowUpload(false);
+          setUploadFile(null);
+          setCustomUploadFileName("");
+          setUploadFolderId("");
+          setUploadFolderName("");
+          setUploadPhase("IDLE");
+          setUploadProgress(0);
+          fetchFiles();
+        }, 800);
       } else {
-        toast.error(res.data?.message || "File upload failed");
+        setUploadPhase("ERROR");
+        const errMsg = res.data?.message || "File upload failed";
+        setUploadErrorMsg(errMsg);
+        toast.error(errMsg);
       }
     } catch (err) {
-      console.error(err);
-      const msg = err.response?.data?.message || "File upload failed";
-      toast.error(msg);
+      if (err.name === "CanceledError" || err.code === "ERR_CANCELED") {
+        toast.info("Upload cancelled");
+        setUploadPhase("IDLE");
+        setUploadProgress(0);
+      } else {
+        console.error(err);
+        setUploadPhase("ERROR");
+        const msg = err.response?.data?.message || err.message || "File upload failed";
+        setUploadErrorMsg(msg);
+        toast.error(msg);
+      }
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleCancelClientUpload = () => {
+    if (uploadAbortRef.current) {
+      uploadAbortRef.current.abort();
     }
   };
 
@@ -188,6 +310,11 @@ export default function ClientFilesPage() {
     }
   };
 
+  const filteredFiles = files.filter((f) => {
+    if (selectedFolderId === "ALL") return true;
+    return String(f.folderId) === String(selectedFolderId) || f.folderName === selectedFolderId;
+  });
+
   return (
     <div style={{ padding: "24px", color: "#1f2937", fontFamily: "var(--font2, sans-serif)" }}>
       {/* Header with Title and Actions */}
@@ -251,12 +378,12 @@ export default function ClientFilesPage() {
       {/* ── TIER STATUS OR FREE REPOSITORY BANNER ────────────── */}
       {isMember ? (
         <div style={{
-          background: planType === "PLATINUM" ? "linear-gradient(135deg, #2e1065, #4c1d95)" : planType === "GOLD" ? "linear-gradient(135deg, #451a03, #78350f)" : "linear-gradient(135deg, #0f172a, #1e293b)",
+          background: planType === "PLATINUM" ? "linear-gradient(135deg, #2e1065, #4c1d95)" : "linear-gradient(135deg, #451a03, #78350f)",
           borderRadius: "14px",
           padding: "14px 20px",
           color: "#ffffff",
           marginBottom: "20px",
-          border: `1.5px solid ${planType === "PLATINUM" ? "#a855f7" : planType === "GOLD" ? "#f59e0b" : "#94a3b8"}`,
+          border: `1.5px solid ${planType === "PLATINUM" ? "#a855f7" : "#f59e0b"}`,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -265,22 +392,17 @@ export default function ClientFilesPage() {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontSize: "20px" }}>
-              {planType === "PLATINUM" ? "💎" : planType === "GOLD" ? "🌟" : "⭐"}
+              {planType === "PLATINUM" ? "💎" : "🌟"}
             </span>
             <div>
               <strong style={{ fontSize: "14px", display: "block" }}>
-                {planType === "PLATINUM" ? "Platinum Elite Vault: Permanent Storage & File Rename Active" : planType === "GOLD" ? "Gold VIP Vault: Expiration-Free Downloads Active (Files Never Expire)" : "Silver Member Vault: Active Document Access"}
+                {planType === "PLATINUM" ? "Platinum Elite Vault: Permanent Storage & VIP File Desk Active" : "Gold VIP Vault: Priority Review & Document Advisory Desk"}
               </strong>
               <span style={{ fontSize: "12px", opacity: 0.85 }}>
-                {planType === "PLATINUM" ? "Unlimited cloud retention, custom file tags, and high-speed multi-file download." : planType === "GOLD" ? "Files in this repository do not expire. Standard downloads are unrestricted." : "Standard audit and filing downloads. Upgrade to Gold for Expiration-Free access."}
+                {planType === "PLATINUM" ? "Unlimited cloud retention, custom file tags, and high-speed multi-file download." : "Audit filings, GST records, and notice advisory documents reviewed with priority."}
               </span>
             </div>
           </div>
-          {planType === "SILVER" && (
-            <Link to="/Client/Membership" style={{ fontSize: "12px", fontWeight: "700", color: "#fbbf24", textDecoration: "underline" }}>
-              Upgrade to Gold (Never Expire) &rarr;
-            </Link>
-          )}
         </div>
       ) : (
         <div style={{
@@ -328,14 +450,190 @@ export default function ClientFilesPage() {
         </div>
       )}
 
+      {/* ─── FOLDER-BASED STRUCTURE VIEW FOR CLIENT (Matching Admin Layout) ─── */}
+      <div style={{ marginBottom: "28px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div>
+            <h3 style={{ margin: "0 0 4px 0", fontSize: "18px", fontWeight: "700", color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+              <HiOutlineFolderOpen size={24} color="#2563eb" />
+              Document Folders & Vaults
+              <span style={{ fontSize: "12px", background: "#eff6ff", color: "#1d4ed8", padding: "2px 8px", borderRadius: "999px", fontWeight: "700" }}>
+                {folders.length} {folders.length === 1 ? "Folder" : "Folders"}
+              </span>
+            </h3>
+            <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
+              Browse your organized documents by folder. Select a folder below to filter your files.
+            </p>
+          </div>
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: "16px",
+        }}>
+          {/* All Files / All Folders Card */}
+          {(() => {
+            const isAllActive = selectedFolderId === "ALL";
+            return (
+              <div
+                onClick={() => setSelectedFolderId("ALL")}
+                style={{
+                  background: "#fff",
+                  borderRadius: "14px",
+                  padding: "22px 20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "10px",
+                  cursor: "pointer",
+                  boxShadow: isAllActive
+                    ? "0 10px 30px rgba(37, 99, 235, 0.2)"
+                    : "0 4px 15px rgba(0,0,0,0.05)",
+                  border: isAllActive ? "2px solid #2563eb" : "1px solid #f1f5f9",
+                  borderBottom: isAllActive ? "4px solid #2563eb" : "1px solid #f1f5f9",
+                  transform: isAllActive ? "translateY(-3px)" : "none",
+                  transition: "all 0.25s ease",
+                }}
+              >
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: isAllActive ? "linear-gradient(135deg, #dbeafe, #bfdbfe)" : "#f1f5f9",
+                  color: isAllActive ? "#1d4ed8" : "#475569",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <HiOutlineFolderOpen size={28} />
+                </div>
+                <h4 style={{
+                  margin: 0,
+                  fontSize: "15px",
+                  fontWeight: isAllActive ? "700" : "600",
+                  color: isAllActive ? "#1d4ed8" : "#1e293b",
+                  textAlign: "center"
+                }}>
+                  All Vault Documents ({files.length})
+                </h4>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b", textAlign: "center" }}>
+                  All office and filing records
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Individual Folder Cards with Description Below Folder Name */}
+          {folders.map((folder) => {
+            const isSelected = String(selectedFolderId) === String(folder.id);
+            const folderColor = folder.folderColor || "#2563eb";
+            const folderFileCount = files.filter(
+              (f) =>
+                (f.folderId && String(f.folderId) === String(folder.id)) ||
+                (f.folderName && folder.folderName && f.folderName.trim().toLowerCase() === folder.folderName.trim().toLowerCase())
+            ).length;
+
+            return (
+              <div
+                key={folder.id}
+                onClick={() => setSelectedFolderId(folder.id)}
+                style={{
+                  background: "#fff",
+                  borderRadius: "14px",
+                  padding: "22px 20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "10px",
+                  cursor: "pointer",
+                  boxShadow: isSelected
+                    ? `0 10px 30px rgba(37, 99, 235, 0.2)`
+                    : "0 4px 15px rgba(0,0,0,0.05)",
+                  border: isSelected ? `2px solid ${folderColor}` : "1px solid #f1f5f9",
+                  borderBottom: isSelected ? `4px solid ${folderColor}` : "1px solid #f1f5f9",
+                  transform: isSelected ? "translateY(-3px)" : "none",
+                  transition: "all 0.25s ease",
+                  position: "relative",
+                }}
+              >
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: isSelected ? "#eff6ff" : "#f8fafc",
+                  color: folderColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: `1.5px solid ${folderColor}33`
+                }}>
+                  <HiOutlineFolderOpen size={28} />
+                </div>
+
+                <h4 style={{
+                  margin: 0,
+                  fontSize: "15px",
+                  fontWeight: isSelected ? "700" : "600",
+                  color: isSelected ? folderColor : "#1e293b",
+                  textAlign: "center",
+                  wordBreak: "break-word"
+                }}>
+                  {folder.folderName}
+                </h4>
+
+                {/* Prominently Show Description Under Folder Name */}
+                <p style={{
+                  margin: "2px 0 0",
+                  fontSize: "12px",
+                  color: "#64748b",
+                  lineHeight: "1.35",
+                  textAlign: "center",
+                  maxWidth: "95%",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }} title={folder.description || "No description provided"}>
+                  {folder.description ? folder.description : <span style={{ fontStyle: "italic", opacity: 0.7 }}>No description</span>}
+                </p>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                  <span style={{
+                    fontSize: "11px",
+                    background: "#f1f5f9",
+                    color: "#475569",
+                    padding: "2px 8px",
+                    borderRadius: "999px",
+                    fontWeight: "700"
+                  }}>
+                    {folderFileCount} {folderFileCount === 1 ? "file" : "files"}
+                  </span>
+                  {folder.isCommon && (
+                    <span style={{ fontSize: "10px", background: "#eef2ff", color: "#4f46e5", padding: "2px 6px", borderRadius: "4px", fontWeight: "600" }}>
+                      Office Common
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div style={{ background: "#fff", borderRadius: "14px", padding: "20px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)", border: "1px solid #e5e7eb" }}>
+
         {loading ? (
           <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af" }}>Loading files...</div>
-        ) : files.length === 0 ? (
+        ) : filteredFiles.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
             <HiOutlineDocumentText size={48} color="#d1d5db" style={{ marginBottom: "12px" }} />
-            <h4 style={{ margin: "0 0 6px", color: "#374151", fontSize: "16px" }}>No documents in your portal yet</h4>
-            <p style={{ margin: 0, fontSize: "14px" }}>Click &quot;Upload Document&quot; above to submit files for CA verification.</p>
+            <h4 style={{ margin: "0 0 6px", color: "#374151", fontSize: "16px" }}>No documents found</h4>
+            <p style={{ margin: 0, fontSize: "14px" }}>
+              {selectedFolderId !== "ALL" ? "No documents uploaded in this folder yet." : "Click 'Upload Document' above to submit files for CA verification."}
+            </p>
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -351,7 +649,7 @@ export default function ClientFilesPage() {
                 </tr>
               </thead>
               <tbody>
-                {files.map((f) => {
+                {filteredFiles.map((f) => {
                   const hasPassedDate = f.expirationDate && new Date(f.expirationDate) < new Date();
                   const isBlockedExpired = hasPassedDate && !isMember;
                   const uploaderName = f.userName || (f.direction === "UPLOADED_BY_CLIENT" ? "You (Client)" : "SKC Office");
@@ -366,7 +664,25 @@ export default function ClientFilesPage() {
                           </div>
                           <div>
                             <strong style={{ color: "#111827", display: "block", fontSize: "14px" }}>{f.fileName}</strong>
-                            <span style={{ fontSize: "12px", color: "#9ca3af" }}>ID: #{f.id}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
+                              <span style={{ fontSize: "12px", color: "#9ca3af" }}>ID: #{f.id}</span>
+                              {f.folderName && (
+                                <span style={{
+                                  padding: "2px 8px",
+                                  background: "#fef3c7",
+                                  color: "#92400e",
+                                  borderRadius: "6px",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                  border: "1px solid #fde68a"
+                                }}>
+                                  📁 {f.folderName}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -419,6 +735,50 @@ export default function ClientFilesPage() {
 
                       <td style={{ padding: "12px 14px", textAlign: "right" }}>
                         <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", justifyContent: "flex-end" }}>
+                          {/* View Button (In-browser preview popup) */}
+                          <button
+                            onClick={() => handleClientViewFile(f)}
+                            title="View Document Preview"
+                            style={{
+                              padding: "7px 12px",
+                              background: "#059669",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              fontWeight: "600",
+                              fontSize: "12px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              boxShadow: "0 2px 6px rgba(5,150,105,0.2)",
+                            }}
+                          >
+                            <HiOutlineEye size={15} /> View
+                          </button>
+
+                          {/* Share Button (WhatsApp & Gmail/Personal Email) */}
+                          <button
+                            onClick={() => openShareModal(f)}
+                            title="Share via WhatsApp or Email"
+                            style={{
+                              padding: "7px 12px",
+                              background: "#7c3aed",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              fontWeight: "600",
+                              fontSize: "12px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              boxShadow: "0 2px 6px rgba(124,58,237,0.2)",
+                            }}
+                          >
+                            <FaShareAlt size={13} /> Share
+                          </button>
+
                           {isBlockedExpired ? (
                             <button
                               onClick={() => handleRequestExtension(f.id)}
@@ -662,18 +1022,73 @@ export default function ClientFilesPage() {
                 </select>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "700", display: "block", marginBottom: "6px", color: "#e2e8f0" }}>
+                  Destination Folder (Optional)
+                </label>
+                <select
+                  value={uploadFolderId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setUploadFolderId(val);
+                    const match = folders.find((f) => String(f.id) === String(val));
+                    setUploadFolderName(match ? match.folderName : "");
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    background: "#151d2f",
+                    border: "1px solid rgba(255, 255, 255, 0.18)",
+                    borderRadius: "8px",
+                    color: "#ffffff",
+                    outline: "none",
+                  }}
+                >
+                  <option value="" style={{ background: "#151d2f", color: "#fff" }}>-- Root / General Documents --</option>
+                  {folders.map((fld) => (
+                    <option key={fld.id} value={fld.id} style={{ background: "#151d2f", color: "#fff" }}>
+                      📁 {fld.folderName} {fld.isCommon ? "(Common Office Folder)" : "(Your Allocated Folder)"}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px", display: "block" }}>
+                  Upload to an allocated folder or common office repository.
+                </span>
+              </div>
+
+              {/* Real-time File Upload Tracking Progress Bar with Animations */}
+              <FileUploadProgress
+                progress={uploadProgress}
+                loadedBytes={uploadBytes.loaded}
+                totalBytes={uploadBytes.total}
+                phase={uploadPhase}
+                fileName={customUploadFileName || uploadFile?.name}
+                destination={uploadFolderName ? `Folder: ${uploadFolderName}` : "General Documents"}
+                errorMessage={uploadErrorMsg}
+                onCancel={handleCancelClientUpload}
+                onRetry={handleClientUpload}
+                theme="dark"
+              />
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "14px" }}>
                 <button
                   type="button"
-                  onClick={() => setShowUpload(false)}
+                  disabled={uploading}
+                  onClick={() => {
+                    if (uploading) return;
+                    setShowUpload(false);
+                    setUploadPhase("IDLE");
+                    setUploadProgress(0);
+                  }}
                   style={{
-                    padding: "8px 16px",
+                    padding: "9px 18px",
                     background: "rgba(255, 255, 255, 0.08)",
-                    color: "#ffffff",
+                    color: uploading ? "rgba(255,255,255,0.4)" : "#ffffff",
                     border: "none",
                     borderRadius: "8px",
-                    cursor: "pointer",
+                    cursor: uploading ? "not-allowed" : "pointer",
                     fontWeight: "600",
+                    fontSize: "13px",
                   }}
                 >
                   Cancel
@@ -682,16 +1097,28 @@ export default function ClientFilesPage() {
                   type="submit"
                   disabled={uploading}
                   style={{
-                    padding: "8px 18px",
-                    background: "var(--primary, #2563eb)",
+                    padding: "9px 20px",
+                    background: uploading
+                      ? "rgba(37, 99, 235, 0.5)"
+                      : "linear-gradient(135deg, #2563eb, #3b82f6)",
                     color: "#fff",
                     border: "none",
                     borderRadius: "8px",
-                    cursor: "pointer",
+                    cursor: uploading ? "not-allowed" : "pointer",
                     fontWeight: "700",
+                    fontSize: "13px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    boxShadow: uploading ? "none" : "0 4px 14px rgba(37, 99, 235, 0.45)",
                   }}
                 >
-                  {uploading ? "Uploading to AWS S3..." : "Upload"}
+                  <HiOutlineArrowUpTray size={16} />
+                  {uploadPhase === "PROCESSING"
+                    ? "Securing in AWS S3..."
+                    : uploading
+                    ? `Uploading (${uploadProgress}%)`
+                    : "Upload Document"}
                 </button>
               </div>
             </form>
@@ -806,6 +1233,271 @@ export default function ClientFilesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ─── CLIENT INLINE DOCUMENT VIEWER POPUP MODAL ─── */}
+      {viewingFile && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.75)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1200,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "18px",
+            maxWidth: "900px",
+            width: "100%",
+            height: "85vh",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.4)",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              padding: "16px 20px",
+              background: "#1e293b",
+              color: "#fff",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>📄</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>{viewingFile.fileName}</h4>
+                  <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    Category: {viewingFile.category} • Folder: {viewingFile.folderName || "General"}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <button
+                  onClick={() => handleDownload(viewingFile.id, viewingFile.fileName)}
+                  style={{
+                    padding: "6px 12px",
+                    background: "#2563eb",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px"
+                  }}
+                >
+                  <HiOutlineArrowDownTray size={14} /> Download
+                </button>
+                <button
+                  onClick={() => setViewingFile(null)}
+                  style={{ background: "transparent", border: "none", color: "#cbd5e1", cursor: "pointer" }}
+                >
+                  <HiOutlineXMark size={24} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {viewingFile.url && (
+                <iframe
+                  src={viewingFile.url}
+                  title={viewingFile.fileName}
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── CLIENT DOCUMENT SHARING MODAL (WHATSAPP & GMAIL / OWN EMAIL) ─── */}
+      {showShareModal && sharingFile && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1200,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "20px",
+            maxWidth: "540px",
+            width: "100%",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.35)",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              padding: "20px 24px",
+              background: "linear-gradient(135deg, #f5f3ff, #ede9fe)",
+              borderBottom: "1px solid #ddd6fe",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#5b21b6", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FaShareAlt size={18} color="#7c3aed" /> Share Your Document
+                </h3>
+                <span style={{ fontSize: "13px", color: "#6d28d9" }}>
+                  {sharingFile.fileName}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#9ca3af" }}
+              >
+                <HiOutlineXMark size={22} />
+              </button>
+            </div>
+
+            <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* WhatsApp Share Card */}
+              <div style={{
+                background: "#f0fdf4",
+                border: "1.5px solid #bbf7d0",
+                borderRadius: "14px",
+                padding: "16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "10px",
+                    background: "#22c55e",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <FaWhatsapp size={22} />
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: "14px", color: "#166534", display: "block" }}>
+                      Send via WhatsApp
+                    </strong>
+                    <span style={{ fontSize: "12px", color: "#15803d" }}>
+                      Quickly share document details and portal access.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleWhatsAppShare(sharingFile)}
+                  style={{
+                    padding: "9px 16px",
+                    background: "#22c55e",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: "700",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <FaWhatsapp size={15} /> WhatsApp
+                </button>
+              </div>
+
+              {/* Gmail / Personal Email Option */}
+              <div style={{
+                background: "#f8fafc",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: "14px",
+                padding: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "10px",
+                    background: "#ea4335",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <FaEnvelope size={20} />
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: "14px", color: "#1e293b", display: "block" }}>
+                      Send from Your Email / Gmail
+                    </strong>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      Compose from your personal email client with prefilled document details.
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleGmailWebShare(sharingFile)}
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      background: "#fff",
+                      border: "1.5px solid #cbd5e1",
+                      borderRadius: "8px",
+                      fontWeight: "700",
+                      fontSize: "13px",
+                      color: "#ea4335",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    Open in Gmail Web
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleEmailShare(sharingFile)}
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      background: "#2563eb",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontWeight: "700",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    Open Default Email App
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

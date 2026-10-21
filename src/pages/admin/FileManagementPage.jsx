@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../../api/axiosInstance";
 import toast from "react-hot-toast";
+import "../../styles/FileManagementHub.css";
+import FileUploadProgress from "../../components/FileUploadProgress";
 import { triggerBrowserDownload, extractFileNameFromHeaders } from "../../utils/fileDownloader";
 import {
   HiOutlineFolderArrowDown,
@@ -17,7 +19,12 @@ import {
   HiOutlineUser,
   HiOutlineArrowPath,
   HiOutlineCalendarDays,
+  HiOutlineFolderPlus,
+  HiOutlineFolderOpen,
+  HiOutlineEye,
 } from "react-icons/hi2";
+import { FaWhatsapp, FaEnvelope, FaShareAlt } from "react-icons/fa";
+import { shareViaWhatsApp } from "../../utils/whatsappShareHelper";
 
 const CATEGORIES = [
   { key: "ALL", label: "All Documents", icon: "/all_files.svg" },
@@ -39,8 +46,63 @@ export default function FileManagementPage() {
 
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Folders State
+  const [folders, setFolders] = useState([]);
+  const [selectedFolderId, setSelectedFolderId] = useState("ALL");
+
+  // Strictly filter folders to the active category only
+  const displayedFolders = useMemo(() => {
+    if (activeCategory === "ALL") return folders;
+    return folders.filter((f) => f.category && f.category.toUpperCase() === activeCategory.toUpperCase());
+  }, [folders, activeCategory]);
+  const [uploadFolderId, setUploadFolderId] = useState("");
+  const [uploadFolderName, setUploadFolderName] = useState("");
+
+  // Batch Selection & Delete Confirmation Modal State
+  const [selectedFileIds, setSelectedFileIds] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingBatch, setDeletingBatch] = useState(false);
+
+  // Staff Deletion Requests Review State
+  const [deleteRequests, setDeleteRequests] = useState([]);
+  const [showDeleteRequestsModal, setShowDeleteRequestsModal] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState(null);
+
+  // Inline Document View Modal State
+  const [viewingFile, setViewingFile] = useState(null);
+
+  // Document Sharing State (WhatsApp & Automated Email)
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharingFile, setSharingFile] = useState(null);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareSubject, setShareSubject] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Create / Rename Folder Modal on Hub Page
+  const [folderModal, setFolderModal] = useState({
+    open: false,
+    isEdit: false,
+    folderId: null,
+    folderName: "",
+    description: "",
+    category: "GST",
+    isCommon: true,
+    clientId: "",
+    folderColor: "#4f46e5",
+    saving: false,
+  });
+
+  // Inline folder creation inside Upload Modal
+  const [showInlineCreateFolder, setShowInlineCreateFolder] = useState(false);
+  const [inlineFolderName, setInlineFolderName] = useState("");
+  const [inlineIsCommon, setInlineIsCommon] = useState(true);
+  const [inlineColor, setInlineColor] = useState("#4f46e5");
+  const [inlineCreating, setInlineCreating] = useState(false);
 
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -56,6 +118,11 @@ export default function FileManagementPage() {
   const [expirationDate, setExpirationDate] = useState("");
   const [showPlatinumExpiryPopup, setShowPlatinumExpiryPopup] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
+  const [uploadPhase, setUploadPhase] = useState("IDLE"); // 'IDLE' | 'UPLOADING' | 'PROCESSING' | 'SUCCESS' | 'ERROR'
+  const [uploadErrorMsg, setUploadErrorMsg] = useState("");
+  const uploadAbortRef = useRef(null);
 
   // Sync category & search & openUpload with URL
   useEffect(() => {
@@ -94,10 +161,137 @@ export default function FileManagementPage() {
 
   const handleSelectCategory = (catKey) => {
     setActiveCategory(catKey);
+    setSelectedFolderId("ALL");
     const newParams = {};
     if (catKey !== "ALL") newParams.category = catKey;
     if (searchQuery) newParams.search = searchQuery;
     setSearchParams(newParams);
+  };
+
+  // Fetch pending staff deletion requests
+  const fetchDeleteRequests = async () => {
+    try {
+      const res = await api.get("/Admin/FileManagement/DeleteRequests");
+      setDeleteRequests(res.data || []);
+    } catch {}
+  };
+
+  const handleApproveDeleteRequest = async (fileId) => {
+    if (!window.confirm("Approve staff deletion request and permanently delete this file from AWS S3?")) return;
+    setProcessingRequestId(fileId);
+    try {
+      await api.post(`/Admin/FileManagement/ApproveDelete/${fileId}`);
+      toast.success("Document permanently purged from storage!");
+      fetchDeleteRequests();
+      fetchFiles();
+      fetchFolders();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to approve deletion");
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const handleRejectDeleteRequest = async (fileId) => {
+    const note = window.prompt("Enter rejection note / explanation for the staff member:", "Deletion request reviewed and declined by Administrator.");
+    if (note === null) return;
+    setProcessingRequestId(fileId);
+    try {
+      await api.post(`/Admin/FileManagement/RejectDelete/${fileId}`, { note });
+      toast.success("Deletion request declined and staff notified.");
+      fetchDeleteRequests();
+      fetchFiles();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to decline deletion request");
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  // Inline Document Viewer
+  const handleViewFile = async (f) => {
+    try {
+      toast.loading(`Loading ${f.fileName} for preview...`, { id: "view-load" });
+      const res = await api.get(`/Admin/Files/${f.id}/View`, { responseType: "blob" });
+      const blobUrl = URL.createObjectURL(res.data);
+      toast.dismiss("view-load");
+      setViewingFile({ ...f, url: blobUrl });
+    } catch (err) {
+      toast.dismiss("view-load");
+      toast.error("Failed to load document preview from AWS S3");
+    }
+  };
+
+  // Sharing Modal & Handlers
+  const openShareModal = (f) => {
+    setSharingFile(f);
+    setShareEmail(f.client?.email || "");
+    setShareSubject(`Sri Kathiravan & Co. Document: ${f.fileName}`);
+    setShareMessage(`Dear ${f.client?.name || "Client"},\n\nPlease find attached the document "${f.fileName}" from Sri Kathiravan & Co.\n\nBest Regards,\nSri Kathiravan & Co. Team`);
+    setShowShareModal(true);
+  };
+
+  const handleWhatsAppShare = async (f) => {
+    if (!f) return;
+    try {
+      const clientInfo = f.client ? `${f.client.name}` : "Personal / Internal";
+      const phoneClean = (f.client?.mobile || "").replace(/\D/g, "");
+      const directDocUrl = `${window.location.protocol}//${window.location.hostname}:8080/skc/Public/Files/${f.id}/View`;
+      const text = `*Sri Kathiravan & Co. - Document Share*\n\n` +
+        `Hello ${f.client?.name || "Client"},\n` +
+        `Here is your official document from Sri Kathiravan & Co.:\n` +
+        `📄 *File:* ${f.fileName}\n` +
+        `📁 *Category:* ${f.category || "General"}\n` +
+        `👤 *Client:* ${clientInfo}\n\n` +
+        `🔗 *View / Download Document:* ${directDocUrl}\n` +
+        `🌐 *Client Portal:* ${window.location.origin}`;
+
+      await shareViaWhatsApp({
+        fileName: f.fileName,
+        fileMimeType: f.fileType || "application/octet-stream",
+        phone: phoneClean,
+        title: `Document: ${f.fileName}`,
+        message: text,
+        directUrl: directDocUrl,
+      });
+    } catch (e) {
+      toast.error("Error launching WhatsApp share");
+    }
+  };
+
+  const handleSendAutomatedEmail = async (e) => {
+    e.preventDefault();
+    if (!shareEmail.trim()) {
+      toast.error("Receiver email address is required");
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const res = await api.post("/Admin/FileManagement/ShareEmail", {
+        fileId: sharingFile.id,
+        receiverEmail: shareEmail.trim(),
+        subject: shareSubject.trim(),
+        message: shareMessage.trim(),
+      });
+      if (res.data?.status === "success") {
+        toast.success(res.data?.message || "Document dispatched to " + shareEmail);
+        setShowShareModal(false);
+      } else {
+        toast.error(res.data?.message || "Failed to send email");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to dispatch automated email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  // Fetch all folders
+  const fetchFolders = async () => {
+    try {
+      const res = await api.get(`/Admin/Folders${activeCategory !== "ALL" ? `?category=${activeCategory}` : ""}`);
+      setFolders(res.data || []);
+    } catch {}
   };
 
   // Fetch all files
@@ -115,7 +309,18 @@ export default function FileManagementPage() {
 
   useEffect(() => {
     fetchFiles();
+    fetchFolders();
+    fetchDeleteRequests();
   }, [activeCategory]);
+
+  // Available Folders for Upload (Common + allocated to selectedClient)
+  const availableUploadFolders = useMemo(() => {
+    if (!folders || folders.length === 0) return [];
+    if (!selectedClient) {
+      return folders.filter((f) => f.isCommon);
+    }
+    return folders.filter((f) => f.isCommon || (f.client && f.client.id === selectedClient.id));
+  }, [folders, selectedClient]);
 
   // Fetch all clients when upload modal opens
   const openUploadModal = async () => {
@@ -128,12 +333,16 @@ export default function FileManagementPage() {
     setSelectedClient(null);
     setClientSearchQuery("");
     setUploadFile(null);
+    setUploadFolderId("");
+    setUploadFolderName("");
+    setShowInlineCreateFolder(false);
     try {
       const res = await api.get("/Admin/FileManagement/Clients");
       setAvailableClients(res.data || []);
     } catch {
       toast.error("Failed to fetch clients list");
     }
+    fetchFolders();
   };
 
   // Filter available clients in modal
@@ -149,12 +358,25 @@ export default function FileManagementPage() {
     );
   }, [availableClients, clientSearchQuery]);
 
-  // Filter files live by search query
+  // Filter files live by search query & folder selection
   const filteredFiles = useMemo(() => {
-    if (!searchQuery.trim()) return files;
+    let result = files;
+
+    if (selectedFolderId !== "ALL") {
+      result = result.filter((f) => {
+        const idMatch = f.folderId && String(f.folderId) === String(selectedFolderId);
+        const nameMatch = f.folderName && String(f.folderName).toLowerCase() === String(selectedFolderId).toLowerCase();
+        const activeFolderObj = folders.find((fd) => String(fd.id) === String(selectedFolderId));
+        const objNameMatch = activeFolderObj && f.folderName && f.folderName.trim().toLowerCase() === activeFolderObj.folderName.trim().toLowerCase();
+        return idMatch || nameMatch || objNameMatch;
+      });
+    }
+
+    if (!searchQuery.trim()) return result;
     const q = searchQuery.toLowerCase();
-    return files.filter((f) => {
+    return result.filter((f) => {
       const matchFile = f.fileName && f.fileName.toLowerCase().includes(q);
+      const matchFolder = f.folderName && f.folderName.toLowerCase().includes(q);
       const c = f.client;
       const matchClient = c && (
         (c.name && c.name.toLowerCase().includes(q)) ||
@@ -169,9 +391,9 @@ export default function FileManagementPage() {
         "personal".includes(q) ||
         "staff".includes(q)
       );
-      return matchFile || matchClient || matchInternal;
+      return matchFile || matchFolder || matchClient || matchInternal;
     });
-  }, [files, searchQuery]);
+  }, [files, searchQuery, selectedFolderId]);
 
   // Handle direct AWS S3 Upload
   const handleUploadSubmit = async (e) => {
@@ -186,6 +408,14 @@ export default function FileManagementPage() {
     }
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadBytes({ loaded: 0, total: uploadFile.size || 0 });
+    setUploadPhase("UPLOADING");
+    setUploadErrorMsg("");
+
+    const abortController = new AbortController();
+    uploadAbortRef.current = abortController;
+
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
@@ -201,34 +431,80 @@ export default function FileManagementPage() {
         formData.append("targetAudience", "CLIENT");
       }
 
+      if (uploadFolderId) {
+        formData.append("folderId", uploadFolderId);
+      }
+      if (uploadFolderName) {
+        formData.append("folderName", uploadFolderName);
+      }
+
       if (expirationDate) {
         formData.append("expirationDate", expirationDate);
       }
 
       const res = await api.post("/Admin/FileManagement/Upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 0, // Disable timeout to support large file uploads without premature abort
+        signal: abortController.signal,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percent = Math.min(99, Math.round((progressEvent.loaded * 100) / progressEvent.total));
+            setUploadProgress(percent);
+            setUploadBytes({ loaded: progressEvent.loaded, total: progressEvent.total });
+            if (progressEvent.loaded >= progressEvent.total) {
+              setUploadProgress(100);
+              setUploadPhase("PROCESSING");
+            }
+          }
+        },
       });
 
       if (res.data?.status === "success") {
+        setUploadPhase("SUCCESS");
+        setUploadProgress(100);
         const dest = uploadCategory === "IMPORTANT"
           ? (targetAudience === "STAFF" ? "Staff Workspace" : "Personal Storage")
-          : selectedClient.name;
+          : selectedClient?.name || "Client Portal";
         toast.success(`File successfully uploaded to ${dest}!`);
-        setShowUploadModal(false);
-        setUploadFile(null);
-        setCustomUploadFileName("");
-        setExpirationDate("");
-        setSelectedClient(null);
-        fetchFiles();
+        setTimeout(() => {
+          setShowUploadModal(false);
+          setUploadFile(null);
+          setCustomUploadFileName("");
+          setExpirationDate("");
+          setSelectedClient(null);
+          setUploadFolderId("");
+          setUploadFolderName("");
+          setUploadPhase("IDLE");
+          setUploadProgress(0);
+          fetchFiles();
+          fetchFolders();
+        }, 800);
       } else {
-        toast.error(res.data?.message || "File upload failed.");
+        setUploadPhase("ERROR");
+        const errMsg = res.data?.message || "File upload failed.";
+        setUploadErrorMsg(errMsg);
+        toast.error(errMsg);
       }
     } catch (err) {
-      console.error(err);
-      const msg = err.response?.data?.message || "File upload failed. Please try again.";
-      toast.error(msg);
+      if (err.name === "CanceledError" || err.code === "ERR_CANCELED") {
+        toast.info("Upload cancelled");
+        setUploadPhase("IDLE");
+        setUploadProgress(0);
+      } else {
+        console.error(err);
+        setUploadPhase("ERROR");
+        const msg = err.response?.data?.message || err.message || "File upload failed. Please try again.";
+        setUploadErrorMsg(msg);
+        toast.error(msg);
+      }
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleCancelAdminUpload = () => {
+    if (uploadAbortRef.current) {
+      uploadAbortRef.current.abort();
     }
   };
 
@@ -247,15 +523,65 @@ export default function FileManagementPage() {
     }
   };
 
-  // Delete file
-  const handleDelete = async (fileId) => {
-    if (!window.confirm("Are you sure you want to permanently delete this file from AWS S3 and database?")) return;
+  // ─── Batch File Selection & Modal Handlers ──────────────────────────
+  const toggleSelectFile = (fileId, e) => {
+    if (e) e.stopPropagation();
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+    );
+  };
+
+  const isAllSelected = useMemo(() => {
+    if (!filteredFiles || filteredFiles.length === 0) return false;
+    return filteredFiles.every((f) => selectedFileIds.includes(f.id));
+  }, [filteredFiles, selectedFileIds]);
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      const visibleIds = new Set(filteredFiles.map((f) => f.id));
+      setSelectedFileIds((prev) => prev.filter((id) => !visibleIds.has(id)));
+    } else {
+      const newIds = new Set([...selectedFileIds, ...filteredFiles.map((f) => f.id)]);
+      setSelectedFileIds(Array.from(newIds));
+    }
+  };
+
+  const selectedFilesList = useMemo(() => {
+    return files.filter((f) => selectedFileIds.includes(f.id));
+  }, [files, selectedFileIds]);
+
+  const handleConfirmBatchDelete = async () => {
+    if (selectedFileIds.length === 0) return;
+    setDeletingBatch(true);
     try {
-      await api.delete(`/Admin/FileManagement/Delete/${fileId}`);
-      toast.success("File deleted successfully");
-      fetchFiles();
-    } catch {
-      toast.error("Failed to delete file");
+      let success = false;
+      try {
+        const res = await api.post("/Admin/FileManagement/DeleteBatch", {
+          fileIds: selectedFileIds,
+        });
+        if (res.data?.status === "success") {
+          success = true;
+        }
+      } catch {
+        // Fallback to parallel deletes
+        await Promise.all(
+          selectedFileIds.map((id) => api.delete(`/Admin/FileManagement/Delete/${id}`))
+        );
+        success = true;
+      }
+
+      if (success) {
+        toast.success(`Successfully deleted ${selectedFileIds.length} document(s)!`);
+        setShowDeleteModal(false);
+        setSelectedFileIds([]);
+        fetchFiles();
+        fetchFolders();
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete selected document(s)");
+    } finally {
+      setDeletingBatch(false);
     }
   };
 
@@ -290,21 +616,101 @@ export default function FileManagementPage() {
     }
   };
 
-  // Purge all files in S3 and Database (Fresh Reset)
-  const handlePurgeAll = async () => {
-    const confirmed = window.confirm(
-      "⚠️ WARNING: This will permanently delete ALL documents stored in AWS S3 and database files table so you can start completely fresh. Are you sure?"
-    );
-    if (!confirmed) return;
+  // ─── Folder Management Handlers for Hub Page ──────────────────────────
+  const handleOpenCreateFolder = () => {
+    setFolderModal({
+      open: true,
+      isEdit: false,
+      folderId: null,
+      folderName: "",
+      description: "",
+      category: activeCategory !== "ALL" ? activeCategory : "GST",
+      isCommon: true,
+      clientId: selectedClient ? String(selectedClient.id) : "",
+      folderColor: "#4f46e5",
+      saving: false,
+    });
+  };
+
+  const handleOpenRenameFolder = (f, e) => {
+    if (e) e.stopPropagation();
+    setFolderModal({
+      open: true,
+      isEdit: true,
+      folderId: f.id,
+      folderName: f.folderName || "",
+      description: f.description || "",
+      isCommon: f.isCommon,
+      clientId: f.client?.id ? String(f.client.id) : "",
+      folderColor: f.folderColor || "#4f46e5",
+      saving: false,
+    });
+  };
+
+  const handleSaveFolderModal = async (e) => {
+    e.preventDefault();
+    if (!folderModal.folderName.trim()) {
+      toast.error("Folder name is required");
+      return;
+    }
+    setFolderModal((prev) => ({ ...prev, saving: true }));
     try {
-      setLoading(true);
-      const res = await api.delete("/Admin/FileManagement/PurgeAll");
-      toast.success(res.data?.message || "Storage reset completely fresh!");
+      const targetCat = folderModal.category || (activeCategory !== "ALL" ? activeCategory : "OTHER");
+      if (folderModal.isEdit) {
+        await api.put(`/Admin/Folders/${folderModal.folderId}`, {
+          folderName: folderModal.folderName.trim(),
+          description: folderModal.description.trim(),
+          category: targetCat,
+          folderColor: folderModal.folderColor,
+        });
+        toast.success("Folder updated successfully!");
+      } else {
+        await api.post("/Admin/Folders", {
+          folderName: folderModal.folderName.trim(),
+          description: folderModal.description.trim(),
+          category: targetCat,
+          folderColor: folderModal.folderColor,
+        });
+        toast.success(`Folder created under ${CATEGORIES.find((c) => c.key === targetCat)?.label || targetCat}!`);
+      }
+      setFolderModal((prev) => ({ ...prev, open: false, saving: false }));
+      fetchFolders();
       fetchFiles();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to purge files");
+      toast.error(err.response?.data?.message || "Failed to save folder");
+      setFolderModal((prev) => ({ ...prev, saving: false }));
+    }
+  };
+
+  // Inline folder creation inside Upload Modal
+  const handleCreateInlineFolder = async (e) => {
+    e.preventDefault();
+    if (!inlineFolderName.trim()) {
+      toast.error("Please enter a folder name");
+      return;
+    }
+    setInlineCreating(true);
+    try {
+      const res = await api.post("/Admin/Folders", {
+        folderName: inlineFolderName.trim(),
+        description: "",
+        isCommon: inlineIsCommon,
+        clientId: inlineIsCommon ? null : (selectedClient ? selectedClient.id : null),
+        folderColor: inlineColor,
+      });
+      toast.success("Folder created and selected!");
+      const newF = res.data?.folder;
+      await fetchFolders();
+      if (newF) {
+        setUploadFolderId(String(newF.id));
+        setUploadFolderName(newF.folderName);
+      }
+      setShowInlineCreateFolder(false);
+      setInlineFolderName("");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to create folder");
     } finally {
-      setLoading(false);
+      setInlineCreating(false);
     }
   };
 
@@ -393,27 +799,66 @@ export default function FileManagementPage() {
             {loading ? "Refreshing..." : "Refresh"}
           </button>
 
+          {/* Review Staff Deletion Requests Button */}
           <button
-            onClick={handlePurgeAll}
+            onClick={() => setShowDeleteRequestsModal(true)}
             style={{
-              padding: "11px 16px",
-              background: "#fef2f2",
-              color: "#b91c1c",
-              border: "1px solid #fecaca",
+              padding: "11px 18px",
+              background: deleteRequests.length > 0 ? "#fef2f2" : "#fff",
+              color: deleteRequests.length > 0 ? "#b91c1c" : "#374151",
+              border: deleteRequests.length > 0 ? "1.5px solid #fca5a5" : "1px solid #d1d5db",
               borderRadius: "10px",
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              fontSize: "13px",
+              fontSize: "14px",
               fontWeight: "600",
               cursor: "pointer",
-              boxShadow: "0 2px 6px rgba(185,28,28,0.06)",
+              boxShadow: deleteRequests.length > 0 ? "0 2px 10px rgba(239,68,68,0.2)" : "0 2px 6px rgba(0,0,0,0.04)",
               transition: "all 0.2s",
             }}
-            title="Delete all documents from AWS S3 and database"
+            title="Review Staff Document Deletion Requests"
           >
-            <HiOutlineTrash size={16} /> Reset Storage
+            <HiOutlineTrash size={18} color={deleteRequests.length > 0 ? "#dc2626" : "#6b7280"} />
+            Deletion Requests
+            {deleteRequests.length > 0 && (
+              <span style={{
+                background: "#dc2626",
+                color: "#fff",
+                fontSize: "11px",
+                fontWeight: "700",
+                padding: "2px 8px",
+                borderRadius: "999px"
+              }}>
+                {deleteRequests.length}
+              </span>
+            )}
           </button>
+
+          {/* Create folder button - hidden when 'All Documents' is selected per requirements */}
+          {activeCategory !== "ALL" && (
+            <button
+              onClick={handleOpenCreateFolder}
+              style={{
+                padding: "11px 18px",
+                background: "#eff6ff",
+                color: "#1d4ed8",
+                border: "1.5px solid #bfdbfe",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "14px",
+                fontWeight: "600",
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(37,99,235,0.08)",
+                transition: "all 0.2s",
+              }}
+              title={`Create a new folder under ${CATEGORIES.find((c) => c.key === activeCategory)?.label || "this category"}`}
+            >
+              <HiOutlineFolderPlus size={18} /> + New {CATEGORIES.find((c) => c.key === activeCategory)?.label || ""} Folder
+            </button>
+          )}
 
           <button
             onClick={openUploadModal}
@@ -440,37 +885,34 @@ export default function FileManagementPage() {
         </div>
       </div>
 
-      {/* Universal Search Bar */}
-      <div style={{
-        background: "#fff",
-        borderRadius: "14px",
-        padding: "14px 20px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-        marginBottom: "28px",
-        border: "1px solid #e5e7eb"
-      }}>
-        <HiOutlineMagnifyingGlass size={22} color="#9ca3af" />
+      {/* Universal Sticky Search Bar with Glow Effect */}
+      <div
+        className={`sticky-search-wrapper ${isSearchFocused ? "is-focused" : ""} ${searchQuery ? "is-searching" : ""}`}
+        style={{
+          top: "74px",
+          position: "sticky",
+          zIndex: 40,
+        }}
+      >
+        <HiOutlineMagnifyingGlass
+          size={22}
+          color={isSearchFocused ? "#6366f1" : (searchQuery ? "#8b5cf6" : "#9ca3af")}
+          style={{ transition: "color 0.2s ease" }}
+        />
         <input
+          className="sticky-search-input"
           type="text"
           placeholder="Search by file name, client name, mobile, email, or GST number..."
           value={searchQuery}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => setIsSearchFocused(false)}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            flex: 1,
-            border: "none",
-            outline: "none",
-            fontSize: "15px",
-            background: "transparent",
-            color: "#111827",
-          }}
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery("")}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", display: "flex" }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", display: "flex", padding: "4px" }}
+            title="Clear search query"
           >
             <HiOutlineXMark size={20} />
           </button>
@@ -534,6 +976,240 @@ export default function FileManagementPage() {
         </div>
       </div>
 
+      {/* Document Folders Grid Section (Below Categories) */}
+      <div style={{ marginBottom: "32px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+          <div>
+            <h3 style={{ margin: "0 0 4px 0", fontSize: "17px", fontWeight: "700", color: "#374151", display: "flex", alignItems: "center", gap: "8px" }}>
+              <HiOutlineFolderOpen size={22} color="#8b5cf6" />
+              Document Folders
+              <span style={{ fontSize: "12px", background: "#f3f4f6", color: "#6b7280", padding: "2px 8px", borderRadius: "999px", fontWeight: "600" }}>
+                {displayedFolders.length} {displayedFolders.length === 1 ? "Folder" : "Folders"}
+              </span>
+            </h3>
+            <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+              Select a folder below to filter documents under <strong>{CATEGORIES.find((c) => c.key === activeCategory)?.label || "Selected Category"}</strong>, or choose All Files.
+            </p>
+          </div>
+
+          {activeCategory !== "ALL" && (
+            <button
+              onClick={handleOpenCreateFolder}
+              style={{
+                background: "#eff6ff",
+                border: "1.5px solid #bfdbfe",
+                color: "#1d4ed8",
+                borderRadius: "10px",
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: "700",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(37,99,235,0.08)",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+            >
+              <HiOutlineFolderPlus size={16} /> + New Folder for {CATEGORIES.find((c) => c.key === activeCategory)?.label || ""}
+            </button>
+          )}
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: "16px",
+        }}>
+          {/* "All Files / All Folders" Card */}
+          {(() => {
+            const isAllActive = selectedFolderId === "ALL";
+            return (
+              <div
+                onClick={() => setSelectedFolderId("ALL")}
+                style={{
+                  background: "#fff",
+                  borderRadius: "14px",
+                  padding: "24px 20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                  cursor: "pointer",
+                  boxShadow: isAllActive
+                    ? "0 10px 30px rgba(142, 45, 226, 0.2)"
+                    : "0 4px 15px rgba(0,0,0,0.05)",
+                  border: isAllActive ? "2px solid #8b5cf6" : "1px solid #f3f4f6",
+                  borderBottom: isAllActive ? "4px solid #8b5cf6" : "1px solid #f3f4f6",
+                  transform: isAllActive ? "translateY(-3px)" : "none",
+                  transition: "all 0.25s ease",
+                  position: "relative",
+                }}
+              >
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: isAllActive ? "linear-gradient(135deg, #ede9fe, #ddd6fe)" : "#f3f4f6",
+                  color: isAllActive ? "#7c3aed" : "#4b5563",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease"
+                }}>
+                  <HiOutlineFolderOpen size={28} />
+                </div>
+
+                <h4 style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  fontWeight: isAllActive ? "700" : "600",
+                  color: isAllActive ? "#7c3aed" : "#374151",
+                  textAlign: "center"
+                }}>
+                  All Files ({files.length})
+                </h4>
+
+                <span style={{
+                  fontSize: "11px",
+                  color: isAllActive ? "#6d28d9" : "#6b7280",
+                  background: isAllActive ? "#f5f3ff" : "#f3f4f6",
+                  padding: "2px 10px",
+                  borderRadius: "999px",
+                  fontWeight: "600"
+                }}>
+                  All Folders Combined
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Individual Folder Cards */}
+          {displayedFolders.map((folder) => {
+            const isSelected = String(selectedFolderId) === String(folder.id);
+            const folderColor = folder.folderColor || "#8b5cf6";
+            const folderFileCount = files.filter(
+              (f) =>
+                (f.folderId && String(f.folderId) === String(folder.id)) ||
+                (f.folderName && folder.folderName && f.folderName.trim().toLowerCase() === folder.folderName.trim().toLowerCase())
+            ).length;
+
+            return (
+              <div
+                key={folder.id}
+                onClick={() => setSelectedFolderId(folder.id)}
+                style={{
+                  background: "#fff",
+                  borderRadius: "14px",
+                  padding: "24px 20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                  cursor: "pointer",
+                  boxShadow: isSelected
+                    ? "0 10px 30px rgba(142, 45, 226, 0.2)"
+                    : "0 4px 15px rgba(0,0,0,0.05)",
+                  border: isSelected ? `2px solid ${folderColor}` : "1px solid #f3f4f6",
+                  borderBottom: isSelected ? `4px solid ${folderColor}` : "1px solid #f3f4f6",
+                  transform: isSelected ? "translateY(-3px)" : "none",
+                  transition: "all 0.25s ease",
+                  position: "relative",
+                }}
+              >
+                {/* Rename Button in top right */}
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenRenameFolder(folder, e)}
+                  title="Rename folder"
+                  style={{
+                    position: "absolute",
+                    top: "10px",
+                    right: "10px",
+                    background: "rgba(243, 244, 246, 0.85)",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "5px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#9ca3af",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#4f46e5";
+                    e.currentTarget.style.background = "#eef2ff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "#9ca3af";
+                    e.currentTarget.style.background = "rgba(243, 244, 246, 0.85)";
+                  }}
+                >
+                  <HiOutlinePencilSquare size={14} />
+                </button>
+
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: isSelected ? `${folderColor}20` : "#f8fafc",
+                  color: folderColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: `1px solid ${isSelected ? folderColor : "#e2e8f0"}`,
+                  transition: "all 0.2s ease"
+                }}>
+                  <HiOutlineFolderOpen size={28} />
+                </div>
+
+                <h4 style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  fontWeight: isSelected ? "700" : "600",
+                  color: isSelected ? folderColor : "#1e293b",
+                  textAlign: "center",
+                  wordBreak: "break-word",
+                  lineHeight: 1.3
+                }}>
+                  {folder.folderName}
+                </h4>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", justifyContent: "center" }}>
+                  <span style={{
+                    fontSize: "11px",
+                    background: isSelected ? `${folderColor}18` : "#f1f5f9",
+                    color: isSelected ? folderColor : "#64748b",
+                    padding: "2px 8px",
+                    borderRadius: "999px",
+                    fontWeight: "700"
+                  }}>
+                    {folderFileCount} {folderFileCount === 1 ? "file" : "files"}
+                  </span>
+
+                  <span style={{
+                    fontSize: "10px",
+                    background: folder.isCommon ? "#ecfdf5" : "#fdf2f8",
+                    color: folder.isCommon ? "#047857" : "#be185d",
+                    border: folder.isCommon ? "1px solid #a7f3d0" : "1px solid #fbcfe8",
+                    padding: "2px 6px",
+                    borderRadius: "999px",
+                    fontWeight: "600"
+                  }}>
+                    {folder.isCommon ? "🌐 Common" : `🔒 ${folder.client?.name || "Client"}`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Files List Section */}
       <div style={{
         background: "#fff",
@@ -542,16 +1218,103 @@ export default function FileManagementPage() {
         boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
         border: "1px solid #e5e7eb"
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "14px" }}>
           <div>
-            <h3 style={{ margin: "0 0 4px 0", fontSize: "18px", fontWeight: "700", color: "#111827" }}>
-              {CATEGORIES.find((c) => c.key === activeCategory)?.label || "Documents"}
+            <h3 style={{ margin: "0 0 4px 0", fontSize: "18px", fontWeight: "700", color: "#111827", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>{CATEGORIES.find((c) => c.key === activeCategory)?.label || "Documents"}</span>
+              <span style={{ color: "#9ca3af", fontWeight: "400" }}>/</span>
+              <span style={{ color: "#8b5cf6" }}>
+                {selectedFolderId === "ALL" ? "All Folders" : (folders.find(f => String(f.id) === String(selectedFolderId))?.folderName || "Folder Files")}
+              </span>
             </h3>
             <span style={{ fontSize: "13px", color: "#6b7280" }}>
               Showing {filteredFiles.length} {filteredFiles.length === 1 ? "document" : "documents"}
               {searchQuery ? ` matching "${searchQuery}"` : ""}
             </span>
           </div>
+
+          {filteredFiles.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <label style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+                padding: "7px 14px",
+                borderRadius: "8px",
+                background: isAllSelected ? "#fee2e2" : "#f3f4f6",
+                border: isAllSelected ? "1.5px solid #f87171" : "1px solid #d1d5db",
+                fontSize: "13px",
+                fontWeight: "600",
+                color: isAllSelected ? "#991b1b" : "#374151",
+                transition: "all 0.2s ease"
+              }}>
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={toggleSelectAll}
+                  style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "#dc2626" }}
+                />
+                <span>Select All ({filteredFiles.length})</span>
+              </label>
+
+              {selectedFileIds.length > 0 && (
+                <>
+                  <span style={{
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    color: "#dc2626",
+                    background: "#fee2e2",
+                    padding: "5px 12px",
+                    borderRadius: "999px",
+                  }}>
+                    {selectedFileIds.length} Selected
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    style={{
+                      padding: "8px 18px",
+                      background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontWeight: "700",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      boxShadow: "0 4px 14px rgba(239, 68, 68, 0.35)",
+                      transition: "transform 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                  >
+                    <HiOutlineTrash size={16} /> Delete Selected ({selectedFileIds.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFileIds([])}
+                    style={{
+                      padding: "8px 12px",
+                      background: "#fff",
+                      color: "#6b7280",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Clear
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -570,23 +1333,42 @@ export default function FileManagementPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {filteredFiles.map((f) => {
               const isExpired = f.expirationDate && new Date(f.expirationDate) < new Date();
+              const isSelected = selectedFileIds.includes(f.id);
               return (
                 <div
                   key={f.id}
+                  onClick={() => toggleSelectFile(f.id)}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "16px 20px",
-                    background: "#f9fafb",
+                    background: isSelected ? "#fff5f5" : "#f9fafb",
                     borderRadius: "12px",
-                    border: "1px solid #e5e7eb",
+                    border: isSelected ? "1.5px solid #fca5a5" : "1px solid #e5e7eb",
                     flexWrap: "wrap",
                     gap: "14px",
+                    cursor: "pointer",
+                    transition: "all 0.18s ease",
                   }}
                 >
-                  {/* File & Client Info */}
+                  {/* File Checkbox & Client Info */}
                   <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: "280px", flex: 2 }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => toggleSelectFile(f.id, e)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        cursor: "pointer",
+                        accentColor: "#dc2626",
+                        flexShrink: 0,
+                      }}
+                      title="Select file for deletion"
+                    />
+
                     <div style={{
                       width: "44px",
                       height: "44px",
@@ -645,8 +1427,24 @@ export default function FileManagementPage() {
                     </div>
                   </div>
 
-                  {/* Category & Expiry */}
+                  {/* Category & Expiry & Folder */}
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <span style={{
+                      padding: "4px 10px",
+                      background: f.folderName ? "#fef3c7" : "#f1f5f9",
+                      color: f.folderName ? "#92400e" : "#475569",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      border: f.folderName ? "1px solid #fde68a" : "1px solid #e2e8f0"
+                    }}>
+                      <HiOutlineFolderOpen size={14} color={f.folderName ? "#d97706" : "#64748b"} />
+                      Folder: {f.folderName || "General / Root"}
+                    </span>
+
                     <span style={{
                       padding: "4px 10px",
                       background: "#e0e7ff",
@@ -677,10 +1475,54 @@ export default function FileManagementPage() {
                     )}
                   </div>
 
-                  {/* Actions: Download, Rename, Delete */}
+                  {/* Actions: View, Download, Share, Rename */}
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    {f.deleteRequested && (
+                      <span style={{
+                        padding: "4px 10px",
+                        background: "#fee2e2",
+                        color: "#991b1b",
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        border: "1px solid #fca5a5"
+                      }} title={`Requested by: ${f.deleteRequestedBy || "Staff"} - Reason: ${f.deleteReason || "N/A"}`}>
+                        ⚠️ Deletion Pending Review
+                      </span>
+                    )}
+
                     <button
-                      onClick={() => handleDownload(f.id, f.fileName)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewFile(f);
+                      }}
+                      title="View document inline"
+                      style={{
+                        padding: "8px 14px",
+                        background: "#059669",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        boxShadow: "0 2px 6px rgba(5,150,105,0.2)",
+                      }}
+                    >
+                      <HiOutlineEye size={16} /> View
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(f.id, f.fileName);
+                      }}
                       title="Download from AWS S3"
                       style={{
                         padding: "8px 14px",
@@ -700,7 +1542,34 @@ export default function FileManagementPage() {
                     </button>
 
                     <button
-                      onClick={() => openRenameModal(f)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openShareModal(f);
+                      }}
+                      title="Share via WhatsApp or Automated Email"
+                      style={{
+                        padding: "8px 14px",
+                        background: "#7c3aed",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        boxShadow: "0 2px 6px rgba(124,58,237,0.2)",
+                      }}
+                    >
+                      <FaShareAlt size={14} /> Share
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openRenameModal(f);
+                      }}
                       title="Rename Document"
                       style={{
                         padding: "8px 12px",
@@ -717,26 +1586,6 @@ export default function FileManagementPage() {
                       }}
                     >
                       <HiOutlinePencilSquare size={15} color="#475569" /> Rename
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(f.id)}
-                      title="Delete Record"
-                      style={{
-                        padding: "8px 12px",
-                        background: "#fee2e2",
-                        color: "#b91c1c",
-                        border: "none",
-                        borderRadius: "8px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <HiOutlineTrash size={15} /> Delete
                     </button>
                   </div>
                 </div>
@@ -1012,6 +1861,164 @@ export default function FileManagementPage() {
                 </div>
               )}
 
+              {/* Select Folder or Create New Folder */}
+              <div style={{
+                background: "#f8fafc",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: "12px",
+                padding: "16px",
+                marginBottom: "20px"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <label style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <HiOutlineFolderOpen size={18} color="#4f46e5" />
+                    Target Folder (Optional / Recommended)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowInlineCreateFolder(!showInlineCreateFolder)}
+                    style={{
+                      background: showInlineCreateFolder ? "#fee2e2" : "#eef2ff",
+                      color: showInlineCreateFolder ? "#991b1b" : "#4338ca",
+                      border: "none",
+                      borderRadius: "6px",
+                      padding: "4px 10px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}
+                  >
+                    <HiOutlineFolderPlus size={14} />
+                    {showInlineCreateFolder ? "Cancel New Folder" : "+ Create New Folder"}
+                  </button>
+                </div>
+
+                {!showInlineCreateFolder ? (
+                  <div>
+                    <select
+                      value={uploadFolderId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setUploadFolderId(val);
+                        const match = availableUploadFolders.find((f) => String(f.id) === String(val));
+                        setUploadFolderName(match ? match.folderName : "");
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        outline: "none",
+                        background: "#fff",
+                        color: "#0f172a"
+                      }}
+                    >
+                      <option value="">-- No Specific Folder (Root Level) --</option>
+                      {availableUploadFolders.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          📁 {f.folderName} {f.isCommon ? "(Common to All Clients)" : `(Client: ${f.client?.name || selectedClient?.name || "Allocated"})`}
+                        </option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: "12px", color: "#64748b", marginTop: "4px", display: "block" }}>
+                      Choose an existing folder or click "+ Create New Folder" to create one on the fly.
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: "#ffffff",
+                    border: "1px dashed #6366f1",
+                    borderRadius: "10px",
+                    padding: "14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px"
+                  }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#374151", marginBottom: "4px" }}>
+                        New Folder Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={inlineFolderName}
+                        onChange={(e) => setInlineFolderName(e.target.value)}
+                        placeholder="e.g. FY 2025-26 Tax Invoices"
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: "6px",
+                          fontSize: "13px",
+                          outline: "none",
+                          boxSizing: "border-box"
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#374151", cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="inlineCommon"
+                          checked={inlineIsCommon}
+                          onChange={() => setInlineIsCommon(true)}
+                        />
+                        <span>🌐 Common Folder (Visible to All)</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#374151", cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="inlineCommon"
+                          checked={!inlineIsCommon}
+                          onChange={() => setInlineIsCommon(false)}
+                        />
+                        <span>🔒 Allocate to {selectedClient ? selectedClient.name : "This Client"}</span>
+                      </label>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowInlineCreateFolder(false)}
+                        style={{
+                          padding: "6px 12px",
+                          background: "#f1f5f9",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          cursor: "pointer",
+                          fontWeight: "600",
+                          color: "#475569"
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={inlineCreating}
+                        onClick={handleCreateInlineFolder}
+                        style={{
+                          padding: "6px 16px",
+                          background: "#4f46e5",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          cursor: inlineCreating ? "not-allowed" : "pointer",
+                          fontWeight: "700"
+                        }}
+                      >
+                        {inlineCreating ? "Creating..." : "Create & Select Folder"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Choose File (Upload to AWS S3) */}
               <div style={{ marginBottom: "20px" }}>
                 <label style={{ fontSize: "14px", fontWeight: "600", color: "#374151", display: "block", marginBottom: "8px" }}>
@@ -1159,18 +2166,44 @@ export default function FileManagementPage() {
                 )}
               </div>
 
+              {/* Real-time File Upload Tracking Progress Bar with Animations */}
+              <FileUploadProgress
+                progress={uploadProgress}
+                loadedBytes={uploadBytes.loaded}
+                totalBytes={uploadBytes.total}
+                phase={uploadPhase}
+                fileName={customUploadFileName || uploadFile?.name}
+                destination={
+                  uploadCategory === "IMPORTANT"
+                    ? targetAudience === "STAFF"
+                      ? "Staff Workspace"
+                      : "Personal Storage"
+                    : selectedClient?.name || "Client Portal"
+                }
+                errorMessage={uploadErrorMsg}
+                onCancel={handleCancelAdminUpload}
+                onRetry={handleUploadSubmit}
+                theme="light"
+              />
+
               {/* Action Buttons */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
                 <button
                   type="button"
-                  onClick={() => setShowUploadModal(false)}
+                  disabled={uploading}
+                  onClick={() => {
+                    if (uploading) return;
+                    setShowUploadModal(false);
+                    setUploadPhase("IDLE");
+                    setUploadProgress(0);
+                  }}
                   style={{
                     padding: "10px 18px",
                     background: "#f3f4f6",
-                    color: "#374151",
+                    color: uploading ? "#9ca3af" : "#374151",
                     border: "none",
                     borderRadius: "8px",
-                    cursor: "pointer",
+                    cursor: uploading ? "not-allowed" : "pointer",
                     fontWeight: "600",
                   }}
                 >
@@ -1181,7 +2214,7 @@ export default function FileManagementPage() {
                   disabled={uploading}
                   style={{
                     padding: "10px 22px",
-                    background: uploading ? "#9ca3af" : "#2563eb",
+                    background: uploading ? "#94a3b8" : "linear-gradient(135deg, #2563eb, #1d4ed8)",
                     color: "#fff",
                     border: "none",
                     borderRadius: "8px",
@@ -1190,10 +2223,15 @@ export default function FileManagementPage() {
                     display: "flex",
                     alignItems: "center",
                     gap: "8px",
+                    boxShadow: uploading ? "none" : "0 4px 14px rgba(37, 99, 235, 0.35)",
                   }}
                 >
                   <HiOutlineArrowUpTray size={18} />
-                  {uploading ? "Uploading to S3..." : "Upload & Save"}
+                  {uploadPhase === "PROCESSING"
+                    ? "Securing in AWS S3..."
+                    : uploading
+                    ? `Uploading (${uploadProgress}%)`
+                    : "Upload & Save"}
                 </button>
               </div>
             </form>
@@ -1415,6 +2453,866 @@ export default function FileManagementPage() {
               >
                 Set Custom Expiry Anyway (Override)
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CREATE / RENAME FOLDER MODAL ──────────────────────── */}
+      {folderModal.open && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10000,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "18px",
+            width: "100%",
+            maxWidth: "500px",
+            padding: "28px",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                <HiOutlineFolderPlus size={22} color="#4f46e5" />
+                {folderModal.isEdit ? "Rename / Edit Folder" : "Create New Document Folder"}
+              </h3>
+              <button
+                onClick={() => setFolderModal((prev) => ({ ...prev, open: false }))}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af" }}
+              >
+                <HiOutlineXMark size={22} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveFolderModal} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* 1. Category Indicator (Strictly bound to chosen category) */}
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#374151", marginBottom: "6px" }}>
+                  Selected Category
+                </label>
+                <div style={{
+                  padding: "10px 14px",
+                  background: "#f5f3ff",
+                  border: "1.5px solid #ddd6fe",
+                  borderRadius: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "10px"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "18px" }}>📁</span>
+                    <strong style={{ fontSize: "14px", color: "#6d28d9" }}>
+                      {CATEGORIES.find((c) => c.key === (folderModal.category || activeCategory))?.label || (folderModal.category || activeCategory)}
+                    </strong>
+                  </div>
+                  <span style={{ fontSize: "11px", color: "#7c3aed", fontWeight: "700", background: "#ede9fe", padding: "2px 8px", borderRadius: "999px" }}>
+                    Strict Category Isolation
+                  </span>
+                </div>
+                <span style={{ fontSize: "11px", color: "#64748b", marginTop: "4px", display: "block" }}>
+                  This folder will strictly reside inside this category only. It will not leak into other categories.
+                </span>
+              </div>
+
+              {/* 2. Folder Name */}
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#374151", marginBottom: "6px" }}>
+                  Folder Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={folderModal.folderName}
+                  onChange={(e) => setFolderModal((prev) => ({ ...prev, folderName: e.target.value }))}
+                  placeholder="e.g. Tax Returns 2026"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px 14px",
+                    border: "1.5px solid #cbd5e1",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    outline: "none",
+                  }}
+                />
+              </div>
+
+              {/* 3. Description (Shown prominently under Folder Name) */}
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#374151", marginBottom: "6px" }}>
+                  Description (Displayed under folder name)
+                </label>
+                <input
+                  type="text"
+                  value={folderModal.description}
+                  onChange={(e) => setFolderModal((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Short note about folder contents..."
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px 14px",
+                    border: "1.5px solid #cbd5e1",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    outline: "none",
+                  }}
+                />
+                <span style={{ fontSize: "11px", color: "#64748b", marginTop: "4px", display: "block" }}>
+                  This description will appear directly beneath the folder name on its card.
+                </span>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => setFolderModal((prev) => ({ ...prev, open: false }))}
+                  style={{
+                    padding: "10px 16px",
+                    background: "#f1f5f9",
+                    border: "none",
+                    borderRadius: "10px",
+                    color: "#475569",
+                    fontWeight: "600",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={folderModal.saving}
+                  style={{
+                    padding: "10px 20px",
+                    background: "#4f46e5",
+                    border: "none",
+                    borderRadius: "10px",
+                    color: "#fff",
+                    fontWeight: "700",
+                    fontSize: "13px",
+                    cursor: folderModal.saving ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {folderModal.saving ? "Saving..." : folderModal.isEdit ? "Update Folder Name" : "Create Folder"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Delete Confirmation Modal with Detailed File Information ─── */}
+      {showDeleteModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1100,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "20px",
+            maxWidth: "640px",
+            width: "100%",
+            maxHeight: "90vh",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.3)",
+            border: "1px solid #fee2e2",
+            overflow: "hidden",
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: "20px 24px",
+              borderBottom: "1px solid #fee2e2",
+              background: "linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "12px",
+                  background: "#fee2e2",
+                  color: "#dc2626",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 8px rgba(220, 38, 38, 0.15)",
+                }}>
+                  <HiOutlineTrash size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#991b1b" }}>
+                    Confirm Permanent Deletion
+                  </h3>
+                  <span style={{ fontSize: "13px", color: "#b91c1c" }}>
+                    {selectedFileIds.length} {selectedFileIds.length === 1 ? "document" : "documents"} selected for removal
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#9ca3af",
+                  display: "flex",
+                  padding: "6px",
+                  borderRadius: "8px",
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#fee2e2")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <HiOutlineXMark size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body: File Information Details */}
+            <div style={{ padding: "24px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "12px",
+                padding: "12px 16px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "10px",
+              }}>
+                <span style={{ fontSize: "18px" }}>⚠️</span>
+                <p style={{ margin: 0, fontSize: "13px", color: "#991b1b", lineHeight: 1.5 }}>
+                  This action will permanently purge the selected document(s) from <strong>AWS S3 storage</strong> and erase their database records. This cannot be undone.
+                </p>
+              </div>
+
+              <div>
+                <h4 style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "700", color: "#374151" }}>
+                  Selected Document Details ({selectedFilesList.length}):
+                </h4>
+
+                <div style={{
+                  background: "#f9fafb",
+                  borderRadius: "12px",
+                  border: "1px solid #e5e7eb",
+                  padding: "10px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  maxHeight: "280px",
+                  overflowY: "auto",
+                }}>
+                  {selectedFilesList.map((file) => (
+                    <div
+                      key={file.id}
+                      style={{
+                        background: "#fff",
+                        borderRadius: "10px",
+                        padding: "12px 14px",
+                        border: "1px solid #e2e8f0",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                        <strong style={{ fontSize: "14px", color: "#111827", wordBreak: "break-all" }}>
+                          📄 {file.fileName}
+                        </strong>
+                        <span style={{ fontSize: "11px", color: "#9ca3af", flexShrink: 0 }}>
+                          ID: #{file.id}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "12px" }}>
+                        <span style={{
+                          background: "#fef3c7",
+                          color: "#92400e",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          fontWeight: "700",
+                          border: "1px solid #fde68a",
+                        }}>
+                          📁 {file.folderName || "General / Root"}
+                        </span>
+
+                        <span style={{
+                          background: "#e0e7ff",
+                          color: "#3730a3",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          fontWeight: "600",
+                        }}>
+                          {file.category}
+                        </span>
+
+                        {file.client ? (
+                          <span style={{ color: "#374151", fontWeight: "500" }}>
+                            👤 Client: <strong>{file.client.name}</strong>
+                          </span>
+                        ) : (
+                          <span style={{ color: "#6b7280" }}>
+                            🔒 Personal / Staff
+                          </span>
+                        )}
+
+                        <span style={{ color: "#9ca3af", marginLeft: "auto", fontSize: "11px" }}>
+                          Created: {formatDateTime(file.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: "16px 24px",
+              borderTop: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: "12px",
+            }}>
+              <button
+                type="button"
+                disabled={deletingBatch}
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  padding: "10px 18px",
+                  background: "#fff",
+                  border: "1px solid #d1d5db",
+                  color: "#374151",
+                  borderRadius: "10px",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  cursor: deletingBatch ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={deletingBatch}
+                onClick={handleConfirmBatchDelete}
+                style={{
+                  padding: "10px 22px",
+                  background: "linear-gradient(135deg, #ef4444, #b91c1c)",
+                  border: "none",
+                  color: "#fff",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "14px",
+                  cursor: deletingBatch ? "not-allowed" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  boxShadow: "0 4px 15px rgba(239, 68, 68, 0.4)",
+                  transition: "opacity 0.2s ease",
+                }}
+              >
+                <HiOutlineTrash size={18} />
+                {deletingBatch ? "Deleting Document(s)..." : `Confirm Delete (${selectedFileIds.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ─── STAFF DELETION REQUESTS REVIEW MODAL ─── */}
+      {showDeleteRequestsModal && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1150,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "20px",
+            maxWidth: "760px",
+            width: "100%",
+            maxHeight: "90vh",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
+            overflow: "hidden",
+            border: "1px solid #fee2e2"
+          }}>
+            <div style={{
+              padding: "20px 24px",
+              background: "linear-gradient(135deg, #fff5f5, #fef2f2)",
+              borderBottom: "1px solid #fee2e2",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#991b1b", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <HiOutlineTrash size={22} color="#dc2626" /> Review Staff Document Deletion Requests
+                </h3>
+                <span style={{ fontSize: "13px", color: "#b91c1c" }}>
+                  {deleteRequests.length} pending request{deleteRequests.length === 1 ? "" : "s"} submitted by staff members
+                </span>
+              </div>
+              <button
+                onClick={() => setShowDeleteRequestsModal(false)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#9ca3af" }}
+              >
+                <HiOutlineXMark size={22} />
+              </button>
+            </div>
+
+            <div style={{ padding: "24px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
+              {deleteRequests.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
+                  <p style={{ margin: 0, fontSize: "15px", fontWeight: "600" }}>🎉 No pending deletion requests from staff members.</p>
+                </div>
+              ) : (
+                deleteRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    style={{
+                      background: "#fff",
+                      border: "1.5px solid #fee2e2",
+                      borderRadius: "14px",
+                      padding: "16px 18px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                      boxShadow: "0 2px 8px rgba(220,38,38,0.06)"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
+                      <div>
+                        <h4 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: "700", color: "#111827" }}>
+                          📄 {req.fileName}
+                        </h4>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#64748b" }}>
+                          <span>Category: <strong style={{ color: "#3730a3" }}>{req.category}</strong></span>
+                          <span>•</span>
+                          <span>Client: <strong style={{ color: "#1f2937" }}>{req.client?.name || "General / Internal"}</strong></span>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: "11px", color: "#9ca3af", background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px" }}>
+                        Requested: {formatDateTime(req.deleteRequestedAt)}
+                      </span>
+                    </div>
+
+                    <div style={{
+                      background: "#fff1f2",
+                      border: "1px solid #ffe4e6",
+                      borderRadius: "10px",
+                      padding: "10px 14px",
+                      fontSize: "13px",
+                      color: "#9f1239"
+                    }}>
+                      <div style={{ fontWeight: "700", marginBottom: "4px" }}>
+                        👤 Requested By: {req.deleteRequestedBy || "Staff Member"}
+                      </div>
+                      <div>
+                        📝 <strong>Staff Reason:</strong> {req.deleteReason || "No explanation provided."}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "4px" }}>
+                      <button
+                        onClick={() => handleViewFile(req)}
+                        style={{
+                          padding: "8px 14px",
+                          background: "#059669",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px"
+                        }}
+                      >
+                        <HiOutlineEye size={16} /> View Document
+                      </button>
+
+                      <button
+                        disabled={processingRequestId === req.id}
+                        onClick={() => handleRejectDeleteRequest(req.id)}
+                        style={{
+                          padding: "8px 14px",
+                          background: "#f1f5f9",
+                          color: "#475569",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                          fontWeight: "600",
+                          cursor: "pointer"
+                        }}
+                      >
+                        Reject
+                      </button>
+
+                      <button
+                        disabled={processingRequestId === req.id}
+                        onClick={() => handleApproveDeleteRequest(req.id)}
+                        style={{
+                          padding: "8px 18px",
+                          background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          boxShadow: "0 2px 8px rgba(220,38,38,0.3)"
+                        }}
+                      >
+                        <HiOutlineTrash size={16} /> {processingRequestId === req.id ? "Purging..." : "Approve & Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── INLINE DOCUMENT VIEWER POPUP MODAL ─── */}
+      {viewingFile && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.75)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1200,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "18px",
+            maxWidth: "900px",
+            width: "100%",
+            height: "85vh",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.4)",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              padding: "16px 20px",
+              background: "#1e293b",
+              color: "#fff",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>📄</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>{viewingFile.fileName}</h4>
+                  <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    Category: {viewingFile.category} {viewingFile.client ? `• Client: ${viewingFile.client.name}` : ""}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingFile(null)}
+                style={{ background: "transparent", border: "none", color: "#cbd5e1", cursor: "pointer" }}
+              >
+                <HiOutlineXMark size={24} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {viewingFile.url && (
+                <iframe
+                  src={viewingFile.url}
+                  title={viewingFile.fileName}
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DOCUMENT SHARING MODAL (WHATSAPP & AUTOMATED EMAIL) ─── */}
+      {showShareModal && sharingFile && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1200,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "20px",
+            maxWidth: "580px",
+            width: "100%",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.35)",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              padding: "20px 24px",
+              background: "linear-gradient(135deg, #f5f3ff, #ede9fe)",
+              borderBottom: "1px solid #ddd6fe",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#5b21b6", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FaShareAlt size={18} color="#7c3aed" /> Share Document
+                </h3>
+                <span style={{ fontSize: "13px", color: "#6d28d9" }}>
+                  {sharingFile.fileName}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowShareModal(false)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#9ca3af" }}
+              >
+                <HiOutlineXMark size={22} />
+              </button>
+            </div>
+
+            <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* Option 1: WhatsApp Share */}
+              <div style={{
+                background: "#f0fdf4",
+                border: "1.5px solid #bbf7d0",
+                borderRadius: "14px",
+                padding: "16px 18px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "10px",
+                    background: "#22c55e",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 8px rgba(34,197,94,0.3)"
+                  }}>
+                    <FaWhatsapp size={24} />
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: "15px", color: "#166534", display: "block" }}>
+                      WhatsApp Direct Share
+                    </strong>
+                    <span style={{ fontSize: "12px", color: "#15803d" }}>
+                      Send document attachment link directly via WhatsApp message.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleWhatsAppShare(sharingFile)}
+                  style={{
+                    padding: "10px 18px",
+                    background: "#22c55e",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontWeight: "700",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    boxShadow: "0 2px 10px rgba(34,197,94,0.3)"
+                  }}
+                >
+                  <FaWhatsapp size={16} /> Share on WhatsApp
+                </button>
+              </div>
+
+              {/* Option 2: Automated Email Service */}
+              <div style={{
+                background: "#f8fafc",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: "14px",
+                padding: "18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "8px",
+                    background: "#4f46e5",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <FaEnvelope size={18} />
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: "15px", color: "#1e293b", display: "block" }}>
+                      Automated Email Dispatch
+                    </strong>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      Sends email with document file attachment via Sri Kathiravan & Co. automated mail service.
+                    </span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSendAutomatedEmail} style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "4px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#374151", marginBottom: "4px" }}>
+                      Receiver Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. client@example.com"
+                      value={shareEmail}
+                      onChange={(e) => setShareEmail(e.target.value)}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "9px 12px",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        outline: "none"
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#374151", marginBottom: "4px" }}>
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      value={shareSubject}
+                      onChange={(e) => setShareSubject(e.target.value)}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "9px 12px",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        outline: "none"
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#374151", marginBottom: "4px" }}>
+                      Custom Message
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={shareMessage}
+                      onChange={(e) => setShareMessage(e.target.value)}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "9px 12px",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        outline: "none"
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "6px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowShareModal(false)}
+                      style={{
+                        padding: "8px 16px",
+                        background: "#fff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: "#475569",
+                        cursor: "pointer"
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={sendingEmail}
+                      style={{
+                        padding: "9px 20px",
+                        background: "linear-gradient(135deg, #4f46e5, #4338ca)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        cursor: sendingEmail ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        boxShadow: "0 2px 10px rgba(79,70,229,0.3)"
+                      }}
+                    >
+                      <FaEnvelope size={14} />
+                      {sendingEmail ? "Dispatching Email..." : "Send Document Email"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>

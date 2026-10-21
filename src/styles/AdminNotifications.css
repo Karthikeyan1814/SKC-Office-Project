@@ -324,3 +324,58 @@
   color: #64748b;
   font-size: 14px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADMIN NOTIFICATIONS MOBILE RESPONSIVE OPTIMIZATIONS
+   Keeps desktop version 100% untouched while eliminating mobile misalignments
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  .admin-notif-container {
+    padding: 10px 4px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .admin-notif-header {
+    padding: 16px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    border-radius: 14px;
+  }
+
+  .admin-notif-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .admin-notif-actions button {
+    flex: 1;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .admin-notif-card {
+    padding: 14px 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .admin-notif-container {
+    padding: 6px 2px;
+  }
+
+  .admin-notif-title {
+    font-size: 20px;
+  }
+
+  .notif-chip {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}

@@ -21,6 +21,7 @@ import {
   HiOutlineTrash,
 } from "react-icons/hi2";
 import { formatDate, formatTime, formatFullDateTime, formatDateTimeAgo } from "../../utils/dateFormat";
+import NotifyUsersModal from "../../components/NotifyUsersModal";
 
 export default function AdminAppointmentsPage() {
   const [appointments, setAppointments] = useState([]);
@@ -47,39 +48,8 @@ export default function AdminAppointmentsPage() {
   });
 
   // Broadcast Notification Modal (Clients, Staff, Admins)
-  const [broadcastModal, setBroadcastModal] = useState({
-    open: false,
-    target: "all",
-    title: "",
-    message: "",
-    sendEmail: true,
-  });
-
+  const [isNotifyOpen, setIsNotifyOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [broadcasting, setBroadcasting] = useState(false);
-
-  const handleBroadcastSubmit = async (e) => {
-    e.preventDefault();
-    if (!broadcastModal.message.trim()) {
-      toast.error("Please enter a message for the announcement.");
-      return;
-    }
-    setBroadcasting(true);
-    try {
-      const res = await api.post("/Admin/BroadcastNotification", {
-        target: broadcastModal.target,
-        title: broadcastModal.title.trim() || "Official Office Announcement",
-        message: broadcastModal.message.trim(),
-        sendEmail: broadcastModal.sendEmail,
-      });
-      toast.success(res.data?.message || "Notification broadcast dispatched successfully!");
-      setBroadcastModal({ open: false, target: "all", title: "", message: "", sendEmail: true });
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to dispatch broadcast");
-    } finally {
-      setBroadcasting(false);
-    }
-  };
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -307,7 +277,7 @@ export default function AdminAppointmentsPage() {
 
         <div className="admin-appt-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <button
-            onClick={() => setBroadcastModal({ ...broadcastModal, open: true })}
+            onClick={() => setIsNotifyOpen(true)}
             className="appt-btn"
             style={{
               padding: "7px 14px",
@@ -903,157 +873,10 @@ export default function AdminAppointmentsPage() {
       )}
 
       {/* ── MODAL: BROADCAST ANNOUNCEMENT / NOTIFY USERS ──────────── */}
-      {broadcastModal.open && (
-        <div className="appt-modal-overlay">
-          <div className="appt-modal-card" style={{ maxWidth: "520px" }}>
-            <div className="appt-modal-header">
-              <h3 className="appt-modal-title" style={{ color: "#4338ca" }}>
-                <HiOutlineBellAlert size={22} color="#4f46e5" />
-                Broadcast Announcement & Notify
-              </h3>
-              <button
-                onClick={() => setBroadcastModal({ ...broadcastModal, open: false })}
-                className="appt-modal-close"
-              >
-                <HiOutlineXMark size={20} />
-              </button>
-            </div>
-
-            <p style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#64748b", lineHeight: 1.45 }}>
-              Send an administrative notification to your clients, staff, or executive admins.
-              Recipients will receive in-portal alerts and optional direct email delivery.
-            </p>
-
-            <form onSubmit={handleBroadcastSubmit}>
-              {/* Target Audience */}
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#374151", display: "block", marginBottom: "6px" }}>
-                  Target Audience
-                </label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "8px" }}>
-                  {[
-                    { id: "all", label: "👥 All Users (Everyone)" },
-                    { id: "clients", label: "💼 Clients Only" },
-                    { id: "staff", label: "👨‍💻 Staff Only" },
-                    { id: "admins", label: "🛡️ Admins Only" },
-                  ].map((target) => (
-                    <button
-                      type="button"
-                      key={target.id}
-                      onClick={() => setBroadcastModal({ ...broadcastModal, target: target.id })}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: "8px",
-                        border: broadcastModal.target === target.id ? "1.5px solid #4f46e5" : "1px solid #e2e8f0",
-                        background: broadcastModal.target === target.id ? "#eef2ff" : "#ffffff",
-                        color: broadcastModal.target === target.id ? "#4338ca" : "#475569",
-                        fontWeight: broadcastModal.target === target.id ? "700" : "500",
-                        fontSize: "12px",
-                        textAlign: "left",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {target.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Title / Subject */}
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#374151", display: "block", marginBottom: "4px" }}>
-                  Announcement Subject / Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Important Notice: Advance Tax Payment Deadline"
-                  value={broadcastModal.title}
-                  onChange={(e) => setBroadcastModal({ ...broadcastModal, title: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "9px 12px",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    boxSizing: "border-box",
-                    outline: "none",
-                  }}
-                />
-              </div>
-
-              {/* Message */}
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#374151", display: "block", marginBottom: "4px" }}>
-                  Announcement Message
-                </label>
-                <textarea
-                  rows={4}
-                  required
-                  placeholder="Type the message to broadcast to the selected group..."
-                  value={broadcastModal.message}
-                  onChange={(e) => setBroadcastModal({ ...broadcastModal, message: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "9px 12px",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    boxSizing: "border-box",
-                    outline: "none",
-                    fontFamily: "inherit",
-                    resize: "vertical",
-                  }}
-                />
-              </div>
-
-              {/* Send Email Checkbox */}
-              <div style={{ marginBottom: "18px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input
-                  type="checkbox"
-                  id="sendEmailCheck"
-                  checked={broadcastModal.sendEmail}
-                  onChange={(e) => setBroadcastModal({ ...broadcastModal, sendEmail: e.target.checked })}
-                  style={{ cursor: "pointer", width: "16px", height: "16px" }}
-                />
-                <label htmlFor="sendEmailCheck" style={{ fontSize: "12.5px", color: "#334155", cursor: "pointer", fontWeight: "500" }}>
-                  Send automated email notification to all recipient inboxes
-                </label>
-              </div>
-
-              {/* Footer Actions */}
-              <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  onClick={() => setBroadcastModal({ ...broadcastModal, open: false })}
-                  className="appt-btn"
-                  style={{ background: "#f1f5f9", color: "#475569", padding: "8px 16px" }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={broadcasting}
-                  className="appt-btn"
-                  style={{
-                    padding: "8px 20px",
-                    background: "linear-gradient(135deg, #4f46e5, #4338ca)",
-                    color: "#ffffff",
-                    border: "none",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}
-                >
-                  <HiOutlinePaperAirplane size={15} />
-                  {broadcasting ? "Broadcasting..." : "Send Announcement"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <NotifyUsersModal
+        isOpen={isNotifyOpen}
+        onClose={() => setIsNotifyOpen(false)}
+      />
     </div>
   );
 }

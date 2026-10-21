@@ -1,19 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   HiOutlineBell,
   HiOutlineArrowRightOnRectangle,
   HiBars3,
   HiOutlineSwatch,
+  HiOutlineBellAlert,
+  HiOutlineSpeakerWave,
+  HiOutlineSpeakerXMark,
 } from "react-icons/hi2";
 import api from "../api/axiosInstance";
 import toast from "react-hot-toast";
 import "../styles/PortalTopBar.css";
 import { useUniversalTheme } from "../context/ThemeContext";
+import NotifyUsersModal from "./NotifyUsersModal";
+import NotificationSettingsModal from "./NotificationSettingsModal";
+import {
+  isSoundEnabled,
+  playNotificationSound,
+  sendBrowserNotification,
+} from "../utils/notificationSound";
 
 export default function PortalTopBar({ onToggleSidebar }) {
   const { setIsThemeModalOpen } = useUniversalTheme();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
+  const [isSoundSettingsOpen, setIsSoundSettingsOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const prevUnreadCountRef = useRef(null);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -30,6 +45,7 @@ export default function PortalTopBar({ onToggleSidebar }) {
     if (path.includes("Appointments")) return "Appointment Schedules";
     if (path.includes("AccessManagement")) return "Staff & Access Control";
     if (path.includes("Notifications")) return "System Notifications";
+    if (path.includes("Settings")) return "Master System Settings";
     if (path.includes("Profile")) return "Account Settings";
     return "Executive Dashboard";
   };
@@ -46,6 +62,19 @@ export default function PortalTopBar({ onToggleSidebar }) {
     return { label: "Client", class: "role-client" };
   };
 
+  // Keep soundOn in sync with localStorage and other components
+  useEffect(() => {
+    const handleSoundSettingsChange = (e) => {
+      if (e?.detail?.soundEnabled !== undefined) {
+        setSoundOn(e.detail.soundEnabled);
+      } else {
+        setSoundOn(isSoundEnabled());
+      }
+    };
+    window.addEventListener("skc-sound-settings-changed", handleSoundSettingsChange);
+    return () => window.removeEventListener("skc-sound-settings-changed", handleSoundSettingsChange);
+  }, []);
+
   useEffect(() => {
     const fetchUnread = async () => {
       try {
@@ -56,14 +85,37 @@ export default function PortalTopBar({ onToggleSidebar }) {
             ? "/Staff/Notifications/UnreadCount"
             : "/Client/Notifications/UnreadCount";
         const res = await api.get(path);
-        setUnreadCount(res.data.count || 0);
+        const newCount = res.data.count || 0;
+
+        // Trigger sound and browser push notification when unread count increases
+        if (prevUnreadCountRef.current !== null && newCount > prevUnreadCountRef.current) {
+          const diff = newCount - prevUnreadCountRef.current;
+          playNotificationSound();
+          sendBrowserNotification("Sri Kathiravan & Co.", {
+            body: `You have ${diff} new notification${diff > 1 ? "s" : ""}. Click to view details.`,
+            url: getNotifRoute(),
+          });
+        }
+
+        prevUnreadCountRef.current = newCount;
+        setUnreadCount(newCount);
       } catch {
         // silent
       }
     };
+
     fetchUnread();
-    const interval = setInterval(fetchUnread, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchUnread, 20000);
+
+    const handleArrival = () => {
+      fetchUnread();
+    };
+    window.addEventListener("skc-notification-arrived", handleArrival);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("skc-notification-arrived", handleArrival);
+    };
   }, [role]);
 
   const handleSignOut = () => {
@@ -111,6 +163,19 @@ export default function PortalTopBar({ onToggleSidebar }) {
           <span className="status-label">Portal Active</span>
         </div>
 
+        {/* Notify Users - Admin Broadcast */}
+        {role === "ADMIN" && (
+          <button
+            className="topbar-notify-users-btn"
+            onClick={() => setIsNotifyModalOpen(true)}
+            title="Broadcast Announcement or Directive to Users"
+            id="topbar-notify-users-btn"
+          >
+            <HiOutlineBellAlert size={18} />
+            <span>Notify Users</span>
+          </button>
+        )}
+
         {/* Theme Settings */}
         <button
           className="topbar-icon-btn"
@@ -120,6 +185,17 @@ export default function PortalTopBar({ onToggleSidebar }) {
           style={{ color: "var(--gold, #f59e0b)" }}
         >
           <HiOutlineSwatch size={20} />
+        </button>
+
+        {/* Notification Sound & Desktop Alert Settings */}
+        <button
+          className="topbar-icon-btn"
+          onClick={() => setIsSoundSettingsOpen(true)}
+          title={`Notification Sound & Alerts: ${soundOn ? "ON" : "MUTED"} (Click for settings)`}
+          id="topbar-sound-settings-btn"
+          style={{ color: soundOn ? "#10b981" : "#f87171" }}
+        >
+          {soundOn ? <HiOutlineSpeakerWave size={20} /> : <HiOutlineSpeakerXMark size={20} />}
         </button>
 
         {/* Notifications */}
@@ -152,6 +228,20 @@ export default function PortalTopBar({ onToggleSidebar }) {
           <span>Exit</span>
         </button>
       </div>
+
+      {/* Broadcast Announcement Modal for Admin */}
+      {role === "ADMIN" && (
+        <NotifyUsersModal
+          isOpen={isNotifyModalOpen}
+          onClose={() => setIsNotifyModalOpen(false)}
+        />
+      )}
+
+      {/* Universal Notification Sound & Alert Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={isSoundSettingsOpen}
+        onClose={() => setIsSoundSettingsOpen(false)}
+      />
     </header>
   );
 }

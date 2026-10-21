@@ -64,7 +64,7 @@ export default function ClientProfile() {
     : 0;
 
   return (
-    <div style={{ padding: "24px", fontFamily: "'Inter', sans-serif" }}>
+    <div className="client-profile-root" style={{ padding: "24px", fontFamily: "'Inter', sans-serif", maxWidth: "100%", boxSizing: "border-box" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         @keyframes shimmer {
@@ -110,6 +110,26 @@ export default function ClientProfile() {
           opacity: 0.15;
           pointer-events: none;
         }
+        @media (max-width: 768px) {
+          .client-profile-root {
+            padding: 10px 4px !important;
+          }
+          .client-profile-card {
+            padding: 18px 14px !important;
+            border-radius: 14px !important;
+          }
+          .membership-card {
+            padding: 20px 16px !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .client-profile-root {
+            padding: 6px 2px !important;
+          }
+          .client-profile-card {
+            padding: 14px 10px !important;
+          }
+        }
       `}</style>
 
       <h2 style={{ display: "flex", alignItems: "center", gap: "10px", color: "#111827", marginBottom: "8px", fontSize: "20px", fontWeight: 800 }}>
@@ -120,7 +140,7 @@ export default function ClientProfile() {
       </p>
 
       {/* ── BASE PROFILE CARD ─────────────────────── */}
-      <div style={{
+      <div className="client-profile-card" style={{
         background: "#fff",
         borderRadius: "20px",
         padding: "28px",
@@ -128,6 +148,7 @@ export default function ClientProfile() {
         marginBottom: "24px",
         border: isActiveMember ? `3px solid ${plan.color}` : "1px solid #e5e7eb",
         transition: "all 0.4s ease",
+        boxSizing: "border-box",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "18px", marginBottom: "24px" }}>
           {/* Avatar */}

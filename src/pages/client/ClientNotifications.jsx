@@ -13,12 +13,30 @@ import {
   HiOutlineArrowRight,
   HiOutlineInbox,
   HiOutlineTrash,
+  HiOutlineSpeakerWave,
+  HiOutlineSpeakerXMark,
 } from "react-icons/hi2";
+import NotificationSettingsModal from "../../components/NotificationSettingsModal";
+import { isSoundEnabled } from "../../utils/notificationSound";
 
 export default function ClientNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL"); // ALL | UNREAD | MEMBERSHIP | FILES | APPOINTMENTS
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
+
+  useEffect(() => {
+    const handleSoundChange = (e) => {
+      if (e?.detail?.soundEnabled !== undefined) {
+        setSoundOn(e.detail.soundEnabled);
+      } else {
+        setSoundOn(isSoundEnabled());
+      }
+    };
+    window.addEventListener("skc-sound-settings-changed", handleSoundChange);
+    return () => window.removeEventListener("skc-sound-settings-changed", handleSoundChange);
+  }, []);
 
   const fetchNotifs = async () => {
     setLoading(true);
@@ -201,6 +219,28 @@ export default function ClientNotifications() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            onClick={() => setIsSettingsModalOpen(true)}
+            style={{
+              padding: "10px 16px",
+              background: soundOn ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+              border: `1px solid ${soundOn ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+              borderRadius: "12px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "13px",
+              fontWeight: "700",
+              color: soundOn ? "#059669" : "#dc2626",
+              cursor: "pointer",
+            }}
+            title="Notification Sound & Desktop Alert Settings"
+            id="client-notif-sound-btn"
+          >
+            {soundOn ? <HiOutlineSpeakerWave size={17} /> : <HiOutlineSpeakerXMark size={17} />}
+            <span>Sound {soundOn ? "ON" : "OFF"}</span>
+          </button>
+
           <button
             onClick={fetchNotifs}
             disabled={loading}
@@ -441,6 +481,12 @@ export default function ClientNotifications() {
           </div>
         )}
       </div>
+
+      {/* Sound & Alert Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+      />
     </div>
   );
 }
