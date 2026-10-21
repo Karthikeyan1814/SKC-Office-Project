@@ -26,17 +26,15 @@ import { useUniversalTheme } from "../context/ThemeContext";
 const getMenuItems = (role, membershipStatus, membershipEnabled = false) => {
   const adminMenu = [
     { label: "Dashboard",          icon: HiOutlineChartBarSquare, path: "/Admin" },
-    { label: "Client Directory",   icon: HiOutlineUsers,          path: "/Admin/ClientDetails" },
     { label: "File Repository",    icon: HiOutlineFolderOpen,      path: "/Admin/FileManagement" },
     { label: "Invoice & Receipt",  icon: HiOutlineReceiptPercent,  path: "/Admin/Billing" },
-    { label: "Form Customizer",    icon: HiOutlineDocumentText,    path: "/Admin/EditClientForm" },
-    { label: "Home Page CMS",      icon: HiOutlineSquares2X2,      path: "/Admin/HomePageCMS" },
     { label: "Membership Tier",    icon: HiOutlineIdentification,  path: "/Admin/Membership" },
     { label: "Appointments",      icon: HiOutlineCalendarDays,    path: "/Admin/Appointments" },
     { label: "Staff & Access",     icon: HiOutlineShieldCheck,     path: "/Admin/AccessManagement" },
     { label: "Notifications",     icon: HiOutlineBell,            path: "/Admin/Notifications" },
-    { label: "System Settings",    icon: HiOutlineCog6Tooth,       path: "/Admin/Settings" },
+    { label: "Client Directory",   icon: HiOutlineUsers,          path: "/Admin/ClientDetails" },
     { label: "My Profile",         icon: HiOutlineUserCircle,      path: "/Admin/Profile" },
+    { label: "System Settings",    icon: HiOutlineCog6Tooth,       path: "/Admin/Settings" },
   ];
 
   const staffMenu = [
