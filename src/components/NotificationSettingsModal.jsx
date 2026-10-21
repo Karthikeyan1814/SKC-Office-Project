@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   HiOutlineSpeakerWave,
   HiOutlineSpeakerXMark,
@@ -133,7 +134,7 @@ export default function NotificationSettingsModal({ isOpen, onClose }) {
 
   const role = localStorage.getItem("skc-role") || "USER";
 
-  return (
+  const modalContent = (
     <div className="notif-settings-overlay" onClick={onClose}>
       <div className="notif-settings-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -313,4 +314,6 @@ export default function NotificationSettingsModal({ isOpen, onClose }) {
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }
