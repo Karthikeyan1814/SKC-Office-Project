@@ -28,11 +28,11 @@ const getMenuItems = (role, membershipStatus, membershipEnabled = false) => {
     { label: "Dashboard",          icon: HiOutlineChartBarSquare, path: "/Admin" },
     { label: "File Repository",    icon: HiOutlineFolderOpen,      path: "/Admin/FileManagement" },
     { label: "Invoice & Receipt",  icon: HiOutlineReceiptPercent,  path: "/Admin/Billing" },
+        { label: "Client Directory",   icon: HiOutlineUsers,          path: "/Admin/ClientDetails" },
+            { label: "Staff & Access",     icon: HiOutlineShieldCheck,     path: "/Admin/AccessManagement" },
     { label: "Membership Tier",    icon: HiOutlineIdentification,  path: "/Admin/Membership" },
     { label: "Appointments",      icon: HiOutlineCalendarDays,    path: "/Admin/Appointments" },
-    { label: "Staff & Access",     icon: HiOutlineShieldCheck,     path: "/Admin/AccessManagement" },
     { label: "Notifications",     icon: HiOutlineBell,            path: "/Admin/Notifications" },
-    { label: "Client Directory",   icon: HiOutlineUsers,          path: "/Admin/ClientDetails" },
     { label: "My Profile",         icon: HiOutlineUserCircle,      path: "/Admin/Profile" },
     { label: "System Settings",    icon: HiOutlineCog6Tooth,       path: "/Admin/Settings" },
   ];

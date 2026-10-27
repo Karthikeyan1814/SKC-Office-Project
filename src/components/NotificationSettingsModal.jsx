@@ -20,6 +20,7 @@ import {
   getSoundVolume,
   setSoundVolume,
   playNotificationSound,
+  unlockAudio,
   SOUND_TYPES,
   isBrowserNotificationSupported,
   getBrowserNotificationPermission,
@@ -39,6 +40,7 @@ export default function NotificationSettingsModal({ isOpen, onClose }) {
   // Sync state with localStorage on mount & when opened
   useEffect(() => {
     if (!isOpen) return;
+    unlockAudio();
     setSoundOn(isSoundEnabled());
     setSelectedType(getSoundType());
     setVolume(getSoundVolume());

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   HiOutlineCloudArrowUp,
   HiOutlineArrowPath,
@@ -9,7 +9,6 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import "../styles/FileUploadProgress.css";
-
 const formatBytes = (bytes) => {
   if (!bytes || bytes <= 0) return "0 B";
   const k = 1024;

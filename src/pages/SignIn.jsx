@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import toast from "react-hot-toast";
 import "../styles/SignIn.css";
 import { authLogin, sendForgotPasswordOtp, verifyAndResetPassword, verifyStaffLoginOtp, resendStaffLoginOtp } from "../api/authlogin";
 import { useNavigate } from "react-router-dom";
@@ -155,6 +157,11 @@ export default function SignIn() {
         try {
             const response = await authLogin(redirectUrl, auth);
             if (response.status === "OTP_REQUIRED") {
+                const adminList = response.adminEmailMasked || "all Administrators";
+                toast.success(`Authorization code dispatched to all Administrators (${adminList})!`, {
+                    duration: 6000,
+                    icon: "🔐",
+                });
                 setStaffOtpModal({
                     open: true,
                     sessionId: response.sessionId,
@@ -164,7 +171,7 @@ export default function SignIn() {
                     loading: false,
                     resending: false,
                     error: "",
-                    successMsg: response.message || "An authorization OTP has been dispatched to Admin email.",
+                    successMsg: response.message || "An authorization OTP has been dispatched to all Admin emails.",
                 });
                 return;
             }
@@ -213,16 +220,24 @@ export default function SignIn() {
         setStaffOtpModal(prev => ({ ...prev, resending: true, error: "", successMsg: "" }));
         try {
             const res = await resendStaffLoginOtp(staffOtpModal.sessionId);
+            const adminList = res.adminEmailMasked || staffOtpModal.adminEmailMasked || "all Administrators";
+            toast.success(`New authorization OTP sent to all Administrators (${adminList})!`, {
+                duration: 6000,
+                icon: "✉️",
+            });
             setStaffOtpModal(prev => ({
                 ...prev,
                 resending: false,
-                successMsg: res.message || "A fresh authorization code has been sent to Admin email."
+                adminEmailMasked: res.adminEmailMasked || prev.adminEmailMasked,
+                successMsg: res.message || "A fresh authorization code has been dispatched to all Admin emails."
             }));
         } catch (err) {
+            const msg = err.response?.data?.message || "Failed to resend OTP. Please try again.";
+            toast.error(msg);
             setStaffOtpModal(prev => ({
                 ...prev,
                 resending: false,
-                error: err.response?.data?.message || "Failed to resend OTP. Please try again."
+                error: msg
             }));
         }
     };
@@ -433,9 +448,9 @@ export default function SignIn() {
             </section>
 
             {/* FORGOT PASSWORD MODAL */}
-            {showForgotModal && (
-                <div className="modal-backdrop-forgot">
-                    <div className="forgot-modal-box">
+            {showForgotModal && typeof document !== "undefined" && createPortal(
+                <div className="modal-backdrop-forgot" onClick={() => setShowForgotModal(false)}>
+                    <div className="forgot-modal-box" onClick={(e) => e.stopPropagation()}>
                         <div className="forgot-modal-header">
                             <div>
                                 <h3>{t.modalTitle}</h3>
@@ -571,60 +586,100 @@ export default function SignIn() {
                             </form>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ─── STAFF LOGIN: ADMIN AUTHORIZATION OTP MODAL ─── */}
-            {staffOtpModal.open && (
-                <div className="forgot-modal-overlay">
-                    <div className="forgot-modal-card" style={{ maxWidth: "480px" }}>
-                        <div className="forgot-modal-header" style={{ borderBottom: "2px solid #3b82f6" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                <span style={{ fontSize: "24px" }}>🔐</span>
+            {staffOtpModal.open && typeof document !== "undefined" && createPortal(
+                <div className="staff-auth-modal-overlay" onClick={() => setStaffOtpModal(prev => ({ ...prev, open: false }))}>
+                    <div className="staff-auth-modal-card" onClick={(e) => e.stopPropagation()}>
+                        <div className="forgot-modal-header" style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.12)", paddingBottom: "14px", marginBottom: "18px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                <div style={{
+                                    width: "44px",
+                                    height: "44px",
+                                    borderRadius: "12px",
+                                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "22px",
+                                    boxShadow: "0 4px 14px rgba(37, 99, 235, 0.45)",
+                                    border: "1px solid rgba(255, 255, 255, 0.2)"
+                                }}>
+                                    🔐
+                                </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "#0f172a" }}>
+                                    <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.2px" }}>
                                         Admin Authorization Required
                                     </h3>
-                                    <span style={{ fontSize: "12px", color: "#2563eb", fontWeight: "700" }}>
-                                        Two-Tier Security Check for Staff Portal
+                                    <span style={{ fontSize: "12px", color: "#60a5fa", fontWeight: "700", letterSpacing: "0.4px" }}>
+                                        Two-Tier Security Check • Staff Portal
                                     </span>
                                 </div>
                             </div>
                             <button
                                 type="button"
-                                className="modal-close-btn"
+                                className="forgot-close-btn"
                                 onClick={() => setStaffOtpModal(prev => ({ ...prev, open: false }))}
+                                aria-label="Close"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        <form onSubmit={handleVerifyStaffOtp} className="forgot-form" style={{ marginTop: "16px" }}>
-                            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px 16px", marginBottom: "16px" }}>
-                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a", marginBottom: "4px" }}>
-                                    Staff Member: <span style={{ color: "#2563eb" }}>{staffOtpModal.staffName}</span>
+                        <form onSubmit={handleVerifyStaffOtp} className="forgot-form-body">
+                            <div className="staff-auth-info-card">
+                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#ffffff", display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                                    <span style={{ color: "rgba(255, 255, 255, 0.7)" }}>Staff Member:</span>
+                                    <span style={{ color: "#93c5fd", background: "rgba(59, 130, 246, 0.22)", border: "1px solid rgba(59, 130, 246, 0.4)", padding: "2px 10px", borderRadius: "6px", fontWeight: "800" }}>
+                                        {staffOtpModal.staffName}
+                                    </span>
                                 </div>
-                                <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#475569", lineHeight: "1.6" }}>
-                                    Your password has been verified. To complete sign-in, an authorization code was dispatched to Admin at <strong>{staffOtpModal.adminEmailMasked}</strong>.
+                                <p style={{ margin: "6px 0 0 0", fontSize: "12.5px", color: "#cbd5e1", lineHeight: "1.6" }}>
+                                    Your password has been verified. To complete sign-in, an authorization code was dispatched to <strong>all Administrators</strong>:
                                 </p>
-                                <p style={{ margin: "6px 0 0 0", fontSize: "11.5px", color: "#64748b" }}>
-                                    👉 Please obtain the 6-digit OTP from your Administrator to authorize this session.
+                                <div style={{ margin: "10px 0" }}>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                                        {(staffOtpModal.adminEmailMasked || "").split(",").map((email, idx) => (
+                                            <div key={idx} style={{
+                                                background: "rgba(34, 197, 94, 0.15)",
+                                                border: "1px solid rgba(34, 197, 94, 0.35)",
+                                                padding: "6px 12px",
+                                                borderRadius: "8px",
+                                                color: "#86efac",
+                                                fontSize: "12.5px",
+                                                fontWeight: "700",
+                                                fontFamily: "monospace",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "6px"
+                                            }}>
+                                                <span>📬 Admin {idx + 1}:</span>
+                                                <span style={{ color: "#ffffff" }}>{email.trim()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <p style={{ margin: "6px 0 0 0", fontSize: "11.5px", color: "#fbbf24", display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <span>👉</span> Please obtain the 6-digit OTP from your Administrator to authorize this session.
                                 </p>
                             </div>
 
                             {staffOtpModal.successMsg && (
-                                <div className="forgot-msg success" style={{ marginBottom: "14px" }}>
+                                <div className="forgot-alert alert-success" style={{ marginBottom: "14px" }}>
                                     ✓ {staffOtpModal.successMsg}
                                 </div>
                             )}
 
                             {staffOtpModal.error && (
-                                <div className="forgot-msg error" style={{ marginBottom: "14px" }}>
+                                <div className="forgot-alert alert-error" style={{ marginBottom: "14px" }}>
                                     ⚠️ {staffOtpModal.error}
                                 </div>
                             )}
 
-                            <label style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b", marginBottom: "6px", display: "block" }}>
+                            <label style={{ fontSize: "13px", fontWeight: "700", color: "#e2e8f0", marginBottom: "8px", display: "block" }}>
                                 Enter 6-Digit Admin Authorization Code:
                             </label>
                             <input
@@ -634,32 +689,24 @@ export default function SignIn() {
                                 value={staffOtpModal.otp}
                                 onChange={(e) => setStaffOtpModal(prev => ({ ...prev, otp: e.target.value.replace(/\D/g, "") }))}
                                 placeholder="• • • • • •"
-                                style={{
-                                    textAlign: "center",
-                                    fontSize: "24px",
-                                    fontWeight: "900",
-                                    letterSpacing: "8px",
-                                    padding: "12px",
-                                    border: "2px solid #3b82f6",
-                                    borderRadius: "10px",
-                                    width: "100%",
-                                    boxSizing: "border-box",
-                                    background: "#f0fdf4",
-                                    color: "#1e3a8a",
-                                    marginBottom: "18px"
-                                }}
+                                className="staff-auth-otp-input"
                                 required
                             />
 
-                            <div className="forgot-modal-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                            <div className="forgot-modal-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "6px" }}>
                                 <button
                                     type="button"
                                     className="btn-cancel"
                                     onClick={handleResendStaffOtp}
                                     disabled={staffOtpModal.resending || staffOtpModal.loading}
-                                    style={{ fontSize: "12px" }}
+                                    style={{
+                                        fontSize: "12px",
+                                        background: "rgba(255, 255, 255, 0.08)",
+                                        border: "1px solid rgba(255, 255, 255, 0.16)",
+                                        color: "#cbd5e1"
+                                    }}
                                 >
-                                    {staffOtpModal.resending ? "Resending..." : "Resend Code to Admin"}
+                                    {staffOtpModal.resending ? "Resending to All Admins..." : "Resend Code to All Admins"}
                                 </button>
                                 <div style={{ display: "flex", gap: "8px" }}>
                                     <button
@@ -667,6 +714,11 @@ export default function SignIn() {
                                         className="btn-cancel"
                                         onClick={() => setStaffOtpModal(prev => ({ ...prev, open: false }))}
                                         disabled={staffOtpModal.loading}
+                                        style={{
+                                            background: "rgba(255, 255, 255, 0.08)",
+                                            border: "1px solid rgba(255, 255, 255, 0.16)",
+                                            color: "#cbd5e1"
+                                        }}
                                     >
                                         Cancel
                                     </button>
@@ -674,7 +726,14 @@ export default function SignIn() {
                                         type="submit"
                                         className="yellow-btn"
                                         disabled={staffOtpModal.loading || staffOtpModal.otp.length !== 6}
-                                        style={{ background: "#2563eb", color: "#fff", fontWeight: "800" }}
+                                        style={{
+                                            background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                                            color: "#ffffff",
+                                            fontWeight: "800",
+                                            padding: "10px 20px",
+                                            borderRadius: "9px",
+                                            boxShadow: "0 4px 14px rgba(37, 99, 235, 0.4)"
+                                        }}
                                     >
                                         {staffOtpModal.loading ? "Verifying..." : "Authorize & Sign In"}
                                     </button>
@@ -682,7 +741,8 @@ export default function SignIn() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

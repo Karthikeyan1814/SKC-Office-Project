@@ -11,37 +11,37 @@
 // Global AudioContext singleton
 let audioContextInstance = null;
 
-function getAudioContext() {
+/**
+ * Returns the shared AudioContext instance.
+ * @param {boolean} createIfMissing - Only create when needed or during user gesture
+ */
+function getAudioContext(createIfMissing = false) {
   if (typeof window === "undefined") return null;
-  if (!audioContextInstance) {
+  if (!audioContextInstance && createIfMissing) {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
-      audioContextInstance = new AudioCtx();
+      try {
+        audioContextInstance = new AudioCtx();
+      } catch {
+        // Safe fallback if browser disallows context creation
+      }
     }
-  }
-  if (audioContextInstance && audioContextInstance.state === "suspended") {
-    audioContextInstance.resume().catch(() => {});
   }
   return audioContextInstance;
 }
 
-// User interaction audio unlocker for browser autoplay policies
-if (typeof window !== "undefined") {
-  const unlockAudio = () => {
-    try {
-      const ctx = getAudioContext();
-      if (ctx && ctx.state === "suspended") {
-        ctx.resume();
-      }
-    } catch {}
-    window.removeEventListener("click", unlockAudio);
-    window.removeEventListener("keydown", unlockAudio);
-    window.removeEventListener("touchstart", unlockAudio);
-  };
-  window.addEventListener("click", unlockAudio, { passive: true });
-  window.addEventListener("keydown", unlockAudio, { passive: true });
-  window.addEventListener("touchstart", unlockAudio, { passive: true });
-}
+// Exported helper to unlock AudioContext on deliberate user gestures (e.g. opening sound settings)
+export const unlockAudio = async () => {
+  try {
+    const ctx = getAudioContext(true);
+    if (ctx && ctx.state === "suspended") {
+      await ctx.resume();
+    }
+    return ctx ? ctx.state === "running" : false;
+  } catch {
+    return false;
+  }
+};
 
 /* ==========================================================================
    Sound Configuration & Persistence
@@ -97,14 +97,32 @@ export const setSoundVolume = (vol) => {
 /* ==========================================================================
    Web Audio Synthesizer Engine
    ========================================================================== */
-export const playNotificationSound = (forcedType = null, forcePlay = false) => {
+export const playNotificationSound = async (forcedType = null, forcePlay = false) => {
   if (!forcePlay && !isSoundEnabled()) {
     return false;
   }
 
+  // Prevent browser autoplay warnings if user has not interacted with document yet
+  if (typeof navigator !== "undefined" && navigator.userActivation && !navigator.userActivation.hasBeenActive) {
+    return false;
+  }
+
   try {
-    const ctx = getAudioContext();
+    const ctx = getAudioContext(true);
     if (!ctx) return false;
+
+    // If context is suspended, attempt resume
+    if (ctx.state === "suspended") {
+      try {
+        await ctx.resume();
+      } catch {
+        return false;
+      }
+    }
+
+    if (ctx.state !== "running") {
+      return false;
+    }
 
     const soundType = forcedType || getSoundType();
     const volumeLevel = getSoundVolume();

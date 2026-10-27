@@ -287,9 +287,10 @@ export default function FileManagementPage() {
   };
 
   // Fetch all folders
+  // Fetch all folders across categories so full folder catalog is available
   const fetchFolders = async () => {
     try {
-      const res = await api.get(`/Admin/Folders${activeCategory !== "ALL" ? `?category=${activeCategory}` : ""}`);
+      const res = await api.get("/Admin/Folders");
       setFolders(res.data || []);
     } catch {}
   };
@@ -313,13 +314,25 @@ export default function FileManagementPage() {
     fetchDeleteRequests();
   }, [activeCategory]);
 
-  // Available Folders for Upload (Common + allocated to selectedClient)
+  // Available Folders for Upload (Common + allocated to selectedClient, sorted client-specific first)
   const availableUploadFolders = useMemo(() => {
     if (!folders || folders.length === 0) return [];
-    if (!selectedClient) {
-      return folders.filter((f) => f.isCommon);
-    }
-    return folders.filter((f) => f.isCommon || (f.client && f.client.id === selectedClient.id));
+    const selId = selectedClient ? String(selectedClient.id || selectedClient) : null;
+    const clientMatching = folders.filter((f) => {
+      if (f.isCommon) return true;
+      if (selId) {
+        const fClientId = f.client?.id ?? f.clientId;
+        return fClientId != null && String(fClientId) === selId;
+      }
+      return false;
+    });
+
+    // Client-specific folders first, then common folders
+    return clientMatching.sort((a, b) => {
+      if (!a.isCommon && b.isCommon) return -1;
+      if (a.isCommon && !b.isCommon) return 1;
+      return (a.folderName || "").localeCompare(b.folderName || "");
+    });
   }, [folders, selectedClient]);
 
   // Fetch all clients when upload modal opens
@@ -661,6 +674,8 @@ export default function FileManagementPage() {
           folderName: folderModal.folderName.trim(),
           description: folderModal.description.trim(),
           category: targetCat,
+          isCommon: folderModal.isCommon,
+          clientId: folderModal.isCommon ? null : (folderModal.clientId || null),
           folderColor: folderModal.folderColor,
         });
         toast.success("Folder updated successfully!");
@@ -669,6 +684,8 @@ export default function FileManagementPage() {
           folderName: folderModal.folderName.trim(),
           description: folderModal.description.trim(),
           category: targetCat,
+          isCommon: folderModal.isCommon,
+          clientId: folderModal.isCommon ? null : (folderModal.clientId || null),
           folderColor: folderModal.folderColor,
         });
         toast.success(`Folder created under ${CATEGORIES.find((c) => c.key === targetCat)?.label || targetCat}!`);
@@ -691,20 +708,26 @@ export default function FileManagementPage() {
     }
     setInlineCreating(true);
     try {
+      const targetCat = uploadCategory && uploadCategory !== "ALL" ? uploadCategory : (activeCategory !== "ALL" ? activeCategory : "OTHER");
       const res = await api.post("/Admin/Folders", {
         folderName: inlineFolderName.trim(),
         description: "",
+        category: targetCat,
         isCommon: inlineIsCommon,
         clientId: inlineIsCommon ? null : (selectedClient ? selectedClient.id : null),
         folderColor: inlineColor,
       });
       toast.success("Folder created and selected!");
       const newF = res.data?.folder;
-      await fetchFolders();
       if (newF) {
+        if (!inlineIsCommon && selectedClient && !newF.client) {
+          newF.client = selectedClient;
+        }
+        setFolders((prev) => [newF, ...prev.filter((f) => String(f.id) !== String(newF.id))]);
         setUploadFolderId(String(newF.id));
         setUploadFolderName(newF.folderName);
       }
+      await fetchFolders();
       setShowInlineCreateFolder(false);
       setInlineFolderName("");
     } catch (err) {
@@ -1876,7 +1899,13 @@ export default function FileManagementPage() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setShowInlineCreateFolder(!showInlineCreateFolder)}
+                    onClick={() => {
+                      const next = !showInlineCreateFolder;
+                      setShowInlineCreateFolder(next);
+                      if (next && selectedClient) {
+                        setInlineIsCommon(false);
+                      }
+                    }}
                     style={{
                       background: showInlineCreateFolder ? "#fee2e2" : "#eef2ff",
                       color: showInlineCreateFolder ? "#991b1b" : "#4338ca",
@@ -1919,8 +1948,8 @@ export default function FileManagementPage() {
                     >
                       <option value="">-- No Specific Folder (Root Level) --</option>
                       {availableUploadFolders.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          📁 {f.folderName} {f.isCommon ? "(Common to All Clients)" : `(Client: ${f.client?.name || selectedClient?.name || "Allocated"})`}
+                        <option key={f.id} value={String(f.id)}>
+                          📁 {f.folderName} {f.isCommon ? "• Common Folder" : `• Specific: ${f.client?.name || selectedClient?.name || "Client"}`} [{f.category || "General"}]
                         </option>
                       ))}
                     </select>
@@ -1959,24 +1988,28 @@ export default function FileManagementPage() {
                       />
                     </div>
 
-                    <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#374151", cursor: "pointer" }}>
+                    <div style={{ display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap", padding: "8px 12px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                      {selectedClient && (
+                        <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: !inlineIsCommon ? "#4338ca" : "#475569", cursor: "pointer", fontWeight: !inlineIsCommon ? "700" : "500" }}>
+                          <input
+                            type="radio"
+                            name="inlineCommon"
+                            checked={!inlineIsCommon}
+                            onChange={() => setInlineIsCommon(false)}
+                            style={{ accentColor: "#4f46e5" }}
+                          />
+                          <span>🔒 Specific to {selectedClient.name} (Only this client)</span>
+                        </label>
+                      )}
+                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: inlineIsCommon ? "#047857" : "#475569", cursor: "pointer", fontWeight: inlineIsCommon ? "700" : "500" }}>
                         <input
                           type="radio"
                           name="inlineCommon"
                           checked={inlineIsCommon}
                           onChange={() => setInlineIsCommon(true)}
+                          style={{ accentColor: "#059669" }}
                         />
-                        <span>🌐 Common Folder (Visible to All)</span>
-                      </label>
-                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#374151", cursor: "pointer" }}>
-                        <input
-                          type="radio"
-                          name="inlineCommon"
-                          checked={!inlineIsCommon}
-                          onChange={() => setInlineIsCommon(false)}
-                        />
-                        <span>🔒 Allocate to {selectedClient ? selectedClient.name : "This Client"}</span>
+                        <span>🌐 Common Folder (Visible to All Clients)</span>
                       </label>
                     </div>
 
@@ -2569,6 +2602,68 @@ export default function FileManagementPage() {
                 <span style={{ fontSize: "11px", color: "#64748b", marginTop: "4px", display: "block" }}>
                   This description will appear directly beneath the folder name on its card.
                 </span>
+              </div>
+
+              {/* 4. Folder Allocation (Common to all clients OR specific client) */}
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#374151", marginBottom: "8px" }}>
+                  Folder Access &amp; Allocation
+                </label>
+                <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "10px", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: folderModal.isCommon ? "#047857" : "#374151", cursor: "pointer", fontWeight: folderModal.isCommon ? "700" : "500" }}>
+                    <input
+                      type="radio"
+                      name="folderModalCommon"
+                      checked={folderModal.isCommon}
+                      onChange={() => setFolderModal((prev) => ({ ...prev, isCommon: true, clientId: "" }))}
+                      style={{ accentColor: "#059669" }}
+                    />
+                    <span>🌐 Common Folder (Visible to All Clients)</span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: !folderModal.isCommon ? "#4338ca" : "#374151", cursor: "pointer", fontWeight: !folderModal.isCommon ? "700" : "500" }}>
+                    <input
+                      type="radio"
+                      name="folderModalCommon"
+                      checked={!folderModal.isCommon}
+                      onChange={() => setFolderModal((prev) => ({ ...prev, isCommon: false }))}
+                      style={{ accentColor: "#4f46e5" }}
+                    />
+                    <span>🔒 Allocate to Specific Client</span>
+                  </label>
+                </div>
+
+                {!folderModal.isCommon && (
+                  <div style={{ marginTop: "8px" }}>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#4b5563", marginBottom: "4px" }}>
+                      Select Target Client *
+                    </label>
+                    <select
+                      value={folderModal.clientId}
+                      required={!folderModal.isCommon}
+                      onChange={(e) => setFolderModal((prev) => ({ ...prev, clientId: e.target.value }))}
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        border: "1.5px solid #cbd5e1",
+                        borderRadius: "10px",
+                        fontSize: "13.5px",
+                        outline: "none",
+                        background: "#fff",
+                        color: "#0f172a"
+                      }}
+                    >
+                      <option value="">-- Choose Target Client --</option>
+                      {availableClients.map((c) => (
+                        <option key={c.id} value={String(c.id)}>
+                          {c.name} {c.mobile ? `(${c.mobile})` : ""} {c.email ? `• ${c.email}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: "11px", color: "#64748b", marginTop: "4px", display: "block" }}>
+                      Only the selected client (and office admins/staff) will be able to see and access this folder.
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>

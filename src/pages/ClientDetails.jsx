@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axiosInstance";
 import toast from "react-hot-toast";
 import "../styles/ClientDetails.css";
@@ -35,9 +35,21 @@ import LoadingAnimation2 from "../components/LoadingAnimation2";
 
 export default function ClientDetails({ isStaff = false }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // Navigation tab state
-  const [activeTab, setActiveTab] = useState("existing"); // 'existing' | 'new'
+  // Navigation tab state (allows deep linking e.g. /Staff/ClientDetails?tab=new)
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") === "new" ? "new" : "existing"
+  ); // 'existing' | 'new'
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "new") {
+      setActiveTab("new");
+    } else if (tabParam === "existing") {
+      setActiveTab("existing");
+    }
+  }, [searchParams]);
 
   // Data state
   const [clients, setClients] = useState([]);
@@ -382,16 +394,21 @@ export default function ClientDetails({ isStaff = false }) {
     }
   };
 
-  // Delete Client
+  // Delete Client (Strictly forbidden for Staff)
   const handleDeleteClient = async (id, name) => {
+    if (isStaff) {
+      toast.error("Staff members are not permitted to delete client accounts. Please contact an administrator.");
+      return;
+    }
     if (!window.confirm(`Are you sure you want to permanently delete client "${name}"? This action cannot be undone.`)) {
       return;
     }
     try {
-      await api.delete(`/Client/Delete/${id}`);
+      await api.delete(`/Admin/Client/Delete/${id}`);
       toast.success(`Client "${name}" deleted successfully.`);
       fetchClients();
     } catch (err) {
+      console.error(err);
       toast.error(err.response?.data?.message || "Failed to delete client");
     }
   };
@@ -420,16 +437,45 @@ export default function ClientDetails({ isStaff = false }) {
           </p>
         </div>
 
-        {!isStaff && (
-          <button
-            type="button"
-            className="header-action-btn"
-            onClick={() => navigate("/Admin/EditClientForm")}
-            id="form-settings-btn"
-          >
-            <HiOutlineCog6Tooth size={18} /> Form Settings
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          {activeTab === "existing" ? (
+            <button
+              type="button"
+              className="header-action-btn"
+              style={{
+                background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
+                color: "#ffffff",
+                border: "none",
+                fontWeight: 600,
+                boxShadow: "0 2px 8px rgba(79, 70, 229, 0.28)",
+              }}
+              onClick={() => setActiveTab("new")}
+              id="header-register-client-btn"
+            >
+              <HiOutlineUserPlus size={18} /> + Register New Client
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="header-action-btn"
+              onClick={() => setActiveTab("existing")}
+              id="header-back-clients-btn"
+            >
+              <HiOutlineUsers size={18} /> View Client Directory
+            </button>
+          )}
+
+          {!isStaff && (
+            <button
+              type="button"
+              className="header-action-btn"
+              onClick={() => navigate("/Admin/EditClientForm")}
+              id="form-settings-btn"
+            >
+              <HiOutlineCog6Tooth size={18} /> Form Settings
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ─── QUICK METRICS ───────────────────────────────────────────── */}
@@ -488,17 +534,15 @@ export default function ClientDetails({ isStaff = false }) {
           <span className="tab-counter-badge">{clients.length}</span>
         </button>
 
-        {!isStaff && (
-          <button
-            type="button"
-            className={`tab-item-btn ${activeTab === "new" ? "active" : ""}`}
-            onClick={() => setActiveTab("new")}
-            id="tab-register-client"
-          >
-            <HiOutlineUserPlus size={18} />
-            <span>Register New Client</span>
-          </button>
-        )}
+        <button
+          type="button"
+          className={`tab-item-btn ${activeTab === "new" ? "active" : ""}`}
+          onClick={() => setActiveTab("new")}
+          id="tab-register-client"
+        >
+          <HiOutlineUserPlus size={18} />
+          <span>Register New Client</span>
+        </button>
       </div>
 
       {/* ─── TAB 1: EXISTING CLIENTS DIRECTORY ─────────────────────────── */}

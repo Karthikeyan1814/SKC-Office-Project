@@ -324,29 +324,45 @@
     transform: none;
 }
 
-/* Forgot Password Modal */
-.modal-backdrop-forgot {
+/* Forgot Password & Staff OTP Authorization Modal */
+.modal-backdrop-forgot,
+.forgot-modal-overlay,
+.staff-auth-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 15, 30, 0.85);
-    backdrop-filter: blur(8px);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 5, 25, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
-    padding: 18px;
+    z-index: 99999999;
+    padding: 20px;
+    box-sizing: border-box;
     animation: fadeIn 0.2s ease-out;
 }
 
-.forgot-modal-box {
+.forgot-modal-box,
+.forgot-modal-card,
+.staff-auth-modal-card {
     background: var(--nav-bg, linear-gradient(135deg, rgba(26, 11, 46, 0.98) 0%, rgba(40, 16, 68, 0.98) 100%));
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 20px;
     width: 100%;
-    max-width: 480px;
-    padding: 32px;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    max-width: 500px;
+    padding: 30px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
     color: #f7fafc;
+    box-sizing: border-box;
+    position: relative;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
 }
 
 .forgot-modal-header {

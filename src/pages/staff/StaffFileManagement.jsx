@@ -162,7 +162,7 @@ export default function StaffFileManagement() {
 
   const fetchFolders = async () => {
     try {
-      const res = await api.get(`/Staff/Folders${activeCategory !== "ALL" ? `?category=${activeCategory}` : ""}`);
+      const res = await api.get("/Staff/Folders");
       setFolders(res.data || []);
     } catch {}
   };
@@ -186,10 +186,21 @@ export default function StaffFileManagement() {
 
   const availableUploadFolders = useMemo(() => {
     if (!folders || folders.length === 0) return [];
-    if (!selectedClient) {
-      return folders.filter((f) => f.isCommon);
-    }
-    return folders.filter((f) => f.isCommon || (f.client && f.client.id === selectedClient.id));
+    const selId = selectedClient ? String(selectedClient.id || selectedClient) : null;
+    const clientMatching = folders.filter((f) => {
+      if (f.isCommon) return true;
+      if (selId) {
+        const fClientId = f.client?.id ?? f.clientId;
+        return fClientId != null && String(fClientId) === selId;
+      }
+      return false;
+    });
+
+    return clientMatching.sort((a, b) => {
+      if (!a.isCommon && b.isCommon) return -1;
+      if (a.isCommon && !b.isCommon) return 1;
+      return (a.folderName || "").localeCompare(b.folderName || "");
+    });
   }, [folders, selectedClient]);
 
   const openUploadModal = async () => {
@@ -337,20 +348,26 @@ export default function StaffFileManagement() {
     }
     setInlineCreating(true);
     try {
+      const targetCat = uploadCategory && uploadCategory !== "ALL" ? uploadCategory : (activeCategory !== "ALL" ? activeCategory : "OTHER");
       const res = await api.post("/Staff/Folders", {
         folderName: inlineFolderName.trim(),
         description: "",
+        category: targetCat,
         isCommon: inlineIsCommon,
         clientId: inlineIsCommon ? null : (selectedClient ? selectedClient.id : null),
         folderColor: inlineColor,
       });
       toast.success("Folder created and selected!");
       const newF = res.data?.folder;
-      await fetchFolders();
       if (newF) {
+        if (!inlineIsCommon && selectedClient && !newF.client) {
+          newF.client = selectedClient;
+        }
+        setFolders((prev) => [newF, ...prev.filter((f) => String(f.id) !== String(newF.id))]);
         setUploadFolderId(String(newF.id));
         setUploadFolderName(newF.folderName);
       }
+      await fetchFolders();
       setShowInlineCreateFolder(false);
       setInlineFolderName("");
     } catch (err) {
@@ -486,6 +503,29 @@ export default function StaffFileManagement() {
     } catch {
       toast.dismiss("staff-view");
       toast.error("Failed to load document preview from AWS S3");
+    }
+  };
+
+  // ─── Batch File Selection Handlers ────────────────────────────────────
+  const toggleSelectFile = (fileId, e) => {
+    if (e) e.stopPropagation();
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+    );
+  };
+
+  const isAllSelected = useMemo(() => {
+    if (!filteredFiles || filteredFiles.length === 0) return false;
+    return filteredFiles.every((f) => selectedFileIds.includes(f.id));
+  }, [filteredFiles, selectedFileIds]);
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      const visibleIds = new Set(filteredFiles.map((f) => f.id));
+      setSelectedFileIds((prev) => prev.filter((id) => !visibleIds.has(id)));
+    } else {
+      const newIds = new Set([...selectedFileIds, ...filteredFiles.map((f) => f.id)]);
+      setSelectedFileIds(Array.from(newIds));
     }
   };
 
@@ -1405,7 +1445,13 @@ export default function StaffFileManagement() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setShowInlineCreateFolder(!showInlineCreateFolder)}
+                    onClick={() => {
+                      const next = !showInlineCreateFolder;
+                      setShowInlineCreateFolder(next);
+                      if (next && selectedClient) {
+                        setInlineIsCommon(false);
+                      }
+                    }}
                     style={{
                       background: showInlineCreateFolder ? "#fee2e2" : "#eef2ff",
                       color: showInlineCreateFolder ? "#991b1b" : "#4338ca",

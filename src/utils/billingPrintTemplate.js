@@ -143,7 +143,7 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
 
   // Official Seal SVG
   const sealSvg = `
-    <svg viewBox="0 0 100 100" class="doc-svg-seal" style="width: 78px; height: 78px;">
+    <svg viewBox="0 0 100 100" class="doc-svg-seal" style="width: 66px; height: 66px; display: inline-block; vertical-align: middle;">
       <circle cx="50" cy="50" r="46" stroke="#059669" stroke-width="2.5" fill="none" stroke-dasharray="3 2" />
       <circle cx="50" cy="50" r="41" stroke="#059669" stroke-width="1.5" fill="none" />
       <circle cx="50" cy="50" r="28" stroke="#059669" stroke-width="1" fill="none" />
@@ -166,66 +166,66 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
     // HIGH-FIDELITY PAYMENT RECEIPT (HORIZONTAL VOUCHER)
     // ═════════════════════════════════════════════════════════════════════════
     return `
-      <div class="doc-paper-receipt" style="border: 2px solid #059669; padding: 20px 24px; font-family: 'Inter', sans-serif; box-sizing: border-box; width: 100%; background: #ffffff;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #059669; padding-bottom: 10px; margin-bottom: 12px;">
+      <div class="doc-paper-receipt" style="border: 2px solid #059669; padding: 16px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; box-sizing: border-box; width: 100%; background: #ffffff; break-inside: avoid; page-break-inside: avoid;">
+        <div class="doc-receipt-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #059669; padding-bottom: 8px; margin-bottom: 10px; break-inside: avoid;">
           <div>
-            <h2 style="margin: 0; color: #065f46; font-size: 22px; font-weight: 900;">${firm.name}</h2>
-            <p style="margin: 2px 0 0 0; font-size: 11.5px; color: #475569;">${firm.subTitle} • ${firm.city} • Phone: <strong>${firm.phone}</strong></p>
+            <h2 style="margin: 0; color: #065f46; font-size: 20px; font-weight: 900; letter-spacing: -0.2px;">${firm.name}</h2>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #475569;">${firm.subTitle} • ${firm.city} • Phone: <strong>${firm.phone}</strong></p>
           </div>
-          <div style="background: #059669; color: #ffffff; padding: 6px 18px; border-radius: 999px; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase;">
+          <div style="background: #059669; color: #ffffff; padding: 5px 16px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
             OFFICIAL PAYMENT RECEIPT
           </div>
-          <div style="text-align: right; font-size: 12px; color: #334155;">
-            <div>Receipt No: <strong style="color: #065f46; font-size: 13.5px;">${docNo}</strong></div>
+          <div style="text-align: right; font-size: 11.5px; color: #334155;">
+            <div>Receipt No: <strong style="color: #065f46; font-size: 13px;">${docNo}</strong></div>
             <div>Date: <strong>${docDate}</strong></div>
             <div>Time: <strong>${docTime}</strong></div>
           </div>
         </div>
 
-        <div style="font-size: 13px; line-height: 1.85; margin-bottom: 14px;">
-          <div style="margin-bottom: 4px;">
+        <div style="font-size: 12.5px; line-height: 1.75; margin-bottom: 10px; break-inside: avoid;">
+          <div style="margin-bottom: 3px;">
             Received with thanks from:
-            <strong style="border-bottom: 1.5px solid #059669; padding: 0 10px; color: #0f172a; font-size: 15px;">${clientName}</strong>
+            <strong style="border-bottom: 1.5px solid #059669; padding: 0 8px; color: #0f172a; font-size: 14px;">${clientName}</strong>
             ${clientMobile ? `(Mobile: <strong>${clientMobile}</strong>)` : ""}
           </div>
-          <div style="margin-bottom: 4px;">
+          <div style="margin-bottom: 3px;">
             The sum of Rupees:
-            <strong style="color: #065f46; border-bottom: 1.5px solid #059669; padding: 0 10px;">${amountWords}</strong>
+            <strong style="color: #065f46; border-bottom: 1.5px solid #059669; padding: 0 8px;">${amountWords}</strong>
           </div>
-          <div style="margin-bottom: 4px;">
+          <div style="margin-bottom: 3px;">
             Being payment towards / on account of:
-            <strong style="border-bottom: 1.5px solid #059669; padding: 0 10px; color: #1e40af;">${doc.receiptTowards || "Professional Advisory & Compliance Retainer"}</strong>
+            <strong style="border-bottom: 1.5px solid #059669; padding: 0 8px; color: #1e40af;">${doc.receiptTowards || "Professional Advisory & Compliance Retainer"}</strong>
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin: 14px 0; gap: 14px;">
-          <div style="background: #ecfdf5; border: 2px solid #059669; border-radius: 10px; padding: 10px 20px; display: inline-flex; align-items: center; gap: 12px;">
-            <span style="font-size: 13px; font-weight: 800; color: #047857;">AMOUNT RECEIVED:</span>
-            <strong style="font-size: 22px; color: #065f46;">₹ ${paidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin: 10px 0; gap: 10px; break-inside: avoid;">
+          <div style="background: #ecfdf5; border: 2px solid #059669; border-radius: 8px; padding: 8px 16px; display: inline-flex; align-items: center; gap: 10px;">
+            <span style="font-size: 12px; font-weight: 800; color: #047857;">AMOUNT RECEIVED:</span>
+            <strong style="font-size: 20px; color: #065f46;">₹ ${paidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
           </div>
 
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 12px; color: #334155;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 14px; font-size: 11.5px; color: #334155;">
             Payment Mode: <strong style="color: #065f46;">${paymentMode}</strong>
             <span> • Settlement Date: <strong>${docDate}</strong></span>
           </div>
         </div>
 
-        <table style="width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; font-size: 10px !important; margin: 12px 0; box-sizing: border-box;">
+        <table class="receipt-items-table" style="width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; font-size: 9.5px !important; margin: 10px 0; box-sizing: border-box; break-inside: auto;">
           <thead>
             <tr style="background: #ecfdf5; color: #065f46; border-bottom: 1.5px solid #a7f3d0;">
-              <th style="padding: 6px 4px; text-align: left; width: 50%;">Service / Particular Details</th>
-              <th style="padding: 6px 4px; text-align: center; width: 15%;">Unit</th>
-              <th style="padding: 6px 4px; text-align: right; width: 17%;">Amount Received</th>
-              <th style="padding: 6px 4px; text-align: right; width: 18%;">Remaining Balance</th>
+              <th style="padding: 5px 4px; text-align: left; width: 50%;">Service / Particular Details</th>
+              <th style="padding: 5px 4px; text-align: center; width: 15%;">Unit</th>
+              <th style="padding: 5px 4px; text-align: right; width: 17%;">Amount Received</th>
+              <th style="padding: 5px 4px; text-align: right; width: 18%;">Remaining Balance</th>
             </tr>
           </thead>
           <tbody>
             ${items.map((it) => `
-              <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 6px 4px; text-align: left;"><strong>${it.description || doc.receiptTowards || "Professional Services"}</strong></td>
-                <td style="padding: 6px 4px; text-align: center;">${it.unit || "Service"}</td>
-                <td style="padding: 6px 4px; text-align: right; font-weight: 800; color: #047857;">₹ ${paidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                <td style="padding: 6px 4px; text-align: right; font-weight: 800; color: ${remainingBalance <= 0 ? "#15803d" : "#b91c1c"};">
+              <tr style="border-bottom: 1px solid #e2e8f0; break-inside: avoid; page-break-inside: avoid;">
+                <td style="padding: 5px 4px; text-align: left;"><strong>${it.description || doc.receiptTowards || "Professional Services"}</strong></td>
+                <td style="padding: 5px 4px; text-align: center;">${it.unit || "Service"}</td>
+                <td style="padding: 5px 4px; text-align: right; font-weight: 800; color: #047857;">₹ ${paidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 5px 4px; text-align: right; font-weight: 800; color: ${remainingBalance <= 0 ? "#15803d" : "#b91c1c"};">
                   ₹ ${remainingBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
@@ -233,22 +233,22 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
           </tbody>
         </table>
 
-        <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-          <div style="font-size: 10.5px; color: #64748b; max-width: 55%; line-height: 1.5;">
+        <div class="doc-receipt-footer" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 8px; break-inside: avoid; page-break-inside: avoid;">
+          <div style="font-size: 10px; color: #64748b; max-width: 55%; line-height: 1.45;">
             * Computer generated official legal payment receipt.<br />
             * Subject to realization of electronic bank settlements.<br />
             * Thank you for your continued association with ${firm.name || "Sri Kathiravan & Co."}.
           </div>
 
-          <div style="display: flex; align-items: flex-end; gap: 24px;">
-            ${branding.showSeal ? `<div style="text-align: center;">${sealSvg}</div>` : ""}
-            <div style="text-align: right; font-size: 11.5px;">
-              <div style="font-family: cursive; font-size: 22px; color: #065f46; font-weight: bold; margin-bottom: 2px;">
+          <div style="display: flex; align-items: flex-end; gap: 18px; break-inside: avoid; page-break-inside: avoid;">
+            ${branding.showSeal ? `<div class="doc-seal-box" style="text-align: center; break-inside: avoid; page-break-inside: avoid;">${sealSvg}</div>` : ""}
+            <div class="doc-signatory" style="text-align: right; font-size: 11px; break-inside: avoid; page-break-inside: avoid;">
+              <div style="font-family: 'Dancing Script', cursive; font-size: 20px; color: #065f46; font-weight: bold; margin-bottom: 2px;">
                 ${branding.signatoryName || "Kathiravan & Co."}
               </div>
-              <div style="width: 140px; height: 1.5px; background: #059669; margin: 4px 0 2px auto;"></div>
+              <div style="width: 130px; height: 1.5px; background: #059669; margin: 3px 0 2px auto;"></div>
               <strong>FOR ${firm.name}</strong><br />
-              <small style="color: #64748b;">${branding.signatoryDesignation || "Authorized Signatory"}</small>
+              <small style="color: #64748b; font-size: 9.5px;">${branding.signatoryDesignation || "Authorized Signatory"}</small>
             </div>
           </div>
         </div>
@@ -258,26 +258,27 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
 
   // ═════════════════════════════════════════════════════════════════════════
   // HIGH-FIDELITY TAX INVOICE (VERTICAL A4 PORTRAIT)
+  // Standard 1-4 items fits cleanly on 1 page; 5+ items paginate seamlessly
   // ═════════════════════════════════════════════════════════════════════════
   return `
-    <div class="doc-paper-invoice" style="border: 1px solid #cbd5e1; padding: 20px 24px; font-family: 'Inter', sans-serif; box-sizing: border-box; width: 100%; background: #ffffff; position: relative;">
+    <div class="doc-paper-invoice" style="border: 1px solid #cbd5e1; padding: 14px 18px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; box-sizing: border-box; width: 100%; background: #ffffff; position: relative;">
       <!-- Accent Top Stripe -->
-      <div style="position: absolute; top: 0; left: 0; right: 0; height: 6px; background: ${accentColor};"></div>
+      <div class="doc-invoice-stripe" style="position: absolute; top: 0; left: 0; right: 0; height: 5px; background: ${accentColor};"></div>
 
       <!-- Header -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 6px; margin-bottom: 16px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 14px;">
+      <div class="doc-invoice-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 4px; margin-bottom: 8px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 8px; break-inside: avoid; page-break-inside: avoid;">
         <div>
-          <h2 style="margin: 0; color: ${accentColor}; font-size: 22px; font-weight: 900;">${firm.name}</h2>
-          <p style="margin: 3px 0 2px 0; font-size: 12px; font-weight: 700; color: #334155;">${firm.subTitle}</p>
-          <p style="margin: 2px 0; font-size: 11px; color: #475569;">${firm.address}, ${firm.city}</p>
-          <p style="margin: 2px 0; font-size: 11px; color: #475569;">Phone: <strong>${firm.phone}</strong> • Email: ${firm.email}</p>
-          <p style="margin: 2px 0; font-size: 11px; color: #475569;">GSTIN: <strong>${firm.gstin}</strong> • PAN: ${firm.pan}</p>
+          <h2 style="margin: 0; color: ${accentColor}; font-size: 20px; font-weight: 900; letter-spacing: -0.2px;">${firm.name}</h2>
+          <p style="margin: 2px 0 1px 0; font-size: 11px; font-weight: 700; color: #334155;">${firm.subTitle}</p>
+          <p style="margin: 1px 0; font-size: 10px; color: #475569;">${firm.address}, ${firm.city}</p>
+          <p style="margin: 1px 0; font-size: 10px; color: #475569;">Phone: <strong>${firm.phone}</strong> • Email: ${firm.email}</p>
+          <p style="margin: 1px 0; font-size: 10px; color: #475569;">GSTIN: <strong>${firm.gstin}</strong> • PAN: ${firm.pan}</p>
         </div>
 
         <div style="text-align: right;">
-          <h1 style="margin: 0; color: ${accentColor}; font-size: 24px; font-weight: 900; letter-spacing: 0.5px;">TAX INVOICE</h1>
-          <div style="margin-top: 6px; font-size: 12px; line-height: 1.6; color: #334155;">
-            <div>Invoice No: <strong style="color: #0f172a; font-size: 13.5px;">${docNo}</strong></div>
+          <h1 style="margin: 0; color: ${accentColor}; font-size: 20px; font-weight: 900; letter-spacing: 0.5px;">TAX INVOICE</h1>
+          <div style="margin-top: 4px; font-size: 11px; line-height: 1.45; color: #334155;">
+            <div>Invoice No: <strong style="color: #0f172a; font-size: 12.5px;">${docNo}</strong></div>
             <div>Invoice Date: <strong>${docDate}</strong></div>
             ${dueDate ? `<div>Due Date: <strong style="color: #b91c1c;">${dueDate}</strong></div>` : ""}
             ${doc.referenceNo ? `<div>Ref / PO: <strong>${doc.referenceNo}</strong></div>` : ""}
@@ -286,91 +287,91 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
       </div>
 
       <!-- Addresses & Compliance Grid -->
-      <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 11.5px;">
+      <div class="doc-addresses-grid" style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 10.5px; break-inside: avoid; page-break-inside: avoid;">
         <div style="flex: 1.2;">
-          <h4 style="margin: 0 0 4px 0; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 0.5px;">Billed To (Client / Customer):</h4>
-          <div style="font-size: 14.5px; font-weight: 900; color: #0f172a; margin-bottom: 2px;">${clientName}</div>
-          ${clientContact ? `<p style="margin: 2px 0; color: #334155;">Attn: <strong>${clientContact}</strong></p>` : ""}
-          <p style="margin: 2px 0; color: #475569;">${clientAddress}</p>
-          <p style="margin: 2px 0; color: #475569;">📱 Mobile: <strong>${clientMobile || "N/A"}</strong> ${clientEmail ? `• ✉️ ${clientEmail}` : ""}</p>
-          <p style="margin: 2px 0; color: #475569;">GSTIN: <strong>${clientGstin || "Unregistered"}</strong> ${clientPan ? `• PAN: ${clientPan}` : ""}</p>
+          <h4 style="margin: 0 0 3px 0; font-size: 9.5px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 0.4px;">Billed To (Client / Customer):</h4>
+          <div style="font-size: 13.5px; font-weight: 900; color: #0f172a; margin-bottom: 1px;">${clientName}</div>
+          ${clientContact ? `<p style="margin: 1px 0; color: #334155;">Attn: <strong>${clientContact}</strong></p>` : ""}
+          <p style="margin: 1px 0; color: #475569; line-height: 1.35;">${clientAddress}</p>
+          <p style="margin: 1px 0; color: #475569;">📱 Mobile: <strong>${clientMobile || "N/A"}</strong> ${clientEmail ? `• ✉️ ${clientEmail}` : ""}</p>
+          <p style="margin: 1px 0; color: #475569;">GSTIN: <strong>${clientGstin || "Unregistered"}</strong> ${clientPan ? `• PAN: ${clientPan}` : ""}</p>
         </div>
 
-        <div style="flex: 1; border-left: 1px solid #e2e8f0; padding-left: 16px;">
-          <h4 style="margin: 0 0 4px 0; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 0.5px;">Supply & Compliance Details:</h4>
-          <p style="margin: 2px 0; color: #334155;">Place of Supply: <strong>${clientState}</strong></p>
-          <p style="margin: 2px 0; color: #334155;">State Code: <strong>${clientStateCode}</strong></p>
-          <p style="margin: 2px 0; color: #334155;">Reverse Charge Applicable: <strong>No</strong></p>
-          <p style="margin: 2px 0; color: #334155;">Nature of Supply: <strong>Professional Legal & Advisory</strong></p>
+        <div style="flex: 1; border-left: 1px solid #e2e8f0; padding-left: 12px;">
+          <h4 style="margin: 0 0 3px 0; font-size: 9.5px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 0.4px;">Supply & Compliance Details:</h4>
+          <p style="margin: 1.5px 0; color: #334155;">Place of Supply: <strong>${clientState}</strong></p>
+          <p style="margin: 1.5px 0; color: #334155;">State Code: <strong>${clientStateCode}</strong></p>
+          <p style="margin: 1.5px 0; color: #334155;">Reverse Charge Applicable: <strong>No</strong></p>
+          <p style="margin: 1.5px 0; color: #334155;">Nature of Supply: <strong>Professional Legal & Advisory</strong></p>
         </div>
       </div>
 
       <!-- Items Table -->
-      <table style="width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; font-size: 10px !important; margin-bottom: 14px; word-break: break-word !important; box-sizing: border-box !important;">
+      <table class="doc-table" style="width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; font-size: 9.5px !important; margin-bottom: 8px; word-break: break-word !important; box-sizing: border-box !important; break-inside: auto; page-break-inside: auto;">
         <thead>
           <tr style="background: ${accentColor}; color: #ffffff;">
-            <th style="padding: 6px 4px; text-align: center; width: 5%;">#</th>
-            <th style="padding: 6px 4px; text-align: left; width: 37%;">Product / Service Description</th>
-            <th style="padding: 6px 4px; text-align: left; width: 10%;">HSN/SAC</th>
-            <th style="padding: 6px 4px; text-align: left; width: 9%;">Unit</th>
-            ${activeCustomCols.map((col) => `<th style="padding: 6px 4px; text-align: left; width: 10%;">${col.name}</th>`).join("")}
-            <th style="padding: 6px 4px; text-align: center; width: 6%;">Qty</th>
-            <th style="padding: 6px 4px; text-align: right; width: 11%;">Rate (₹)</th>
-            <th style="padding: 6px 4px; text-align: center; width: 7%;">GST%</th>
-            <th style="padding: 6px 4px; text-align: right; width: 15%;">Total (₹)</th>
+            <th style="padding: 4.5px 4px; text-align: center; width: 5%;">#</th>
+            <th style="padding: 4.5px 4px; text-align: left; width: 37%;">Product / Service Description</th>
+            <th style="padding: 4.5px 4px; text-align: left; width: 10%;">HSN/SAC</th>
+            <th style="padding: 4.5px 4px; text-align: left; width: 9%;">Unit</th>
+            ${activeCustomCols.map((col) => `<th style="padding: 4.5px 4px; text-align: left; width: 10%;">${col.name}</th>`).join("")}
+            <th style="padding: 4.5px 4px; text-align: center; width: 6%;">Qty</th>
+            <th style="padding: 4.5px 4px; text-align: right; width: 11%;">Rate (₹)</th>
+            <th style="padding: 4.5px 4px; text-align: center; width: 7%;">GST%</th>
+            <th style="padding: 4.5px 4px; text-align: right; width: 15%;">Total (₹)</th>
           </tr>
         </thead>
         <tbody>
           ${items.map((it, idx) => `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-              <td style="padding: 6px 4px; text-align: center; font-weight: 700;">${idx + 1}</td>
-              <td style="padding: 6px 4px; text-align: left;"><strong style="color: #0f172a;">${it.description}</strong></td>
-              <td style="padding: 6px 4px; text-align: left;">${it.hsn || "998231"}</td>
-              <td style="padding: 6px 4px; text-align: left;">${it.unit || "Service"}</td>
-              ${activeCustomCols.map((col) => `<td style="padding: 6px 4px; text-align: left; color: #1e40af; font-weight: 600;">${it.customValues?.[col.id] || "—"}</td>`).join("")}
-              <td style="padding: 6px 4px; text-align: center;">${it.quantity || 1}</td>
-              <td style="padding: 6px 4px; text-align: right;">₹${Number(it.rate || it.total).toLocaleString("en-IN")}</td>
-              <td style="padding: 6px 4px; text-align: center;">${it.gstPercent !== undefined ? it.gstPercent : 18}%</td>
-              <td style="padding: 6px 4px; text-align: right; font-weight: 800;">₹${Number(it.total || (it.rate * (it.quantity || 1))).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+            <tr style="border-bottom: 1px solid #e2e8f0; break-inside: avoid; page-break-inside: avoid;">
+              <td style="padding: 4.5px 4px; text-align: center; font-weight: 700;">${idx + 1}</td>
+              <td style="padding: 4.5px 4px; text-align: left;"><strong style="color: #0f172a;">${it.description}</strong></td>
+              <td style="padding: 4.5px 4px; text-align: left;">${it.hsn || "998231"}</td>
+              <td style="padding: 4.5px 4px; text-align: left;">${it.unit || "Service"}</td>
+              ${activeCustomCols.map((col) => `<td style="padding: 4.5px 4px; text-align: left; color: #1e40af; font-weight: 600;">${it.customValues?.[col.id] || "—"}</td>`).join("")}
+              <td style="padding: 4.5px 4px; text-align: center;">${it.quantity || 1}</td>
+              <td style="padding: 4.5px 4px; text-align: right;">₹${Number(it.rate || it.total).toLocaleString("en-IN")}</td>
+              <td style="padding: 4.5px 4px; text-align: center;">${it.gstPercent !== undefined ? it.gstPercent : 18}%</td>
+              <td style="padding: 4.5px 4px; text-align: right; font-weight: 800;">₹${Number(it.total || (it.rate * (it.quantity || 1))).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
             </tr>
           `).join("")}
         </tbody>
       </table>
 
       <!-- Summary Split: Bank Details & Tax Calculation Table -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px;">
-        <div style="flex: 1 1 48%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; font-size: 11px;">
-          <strong style="color: #0f172a; display: block; margin-bottom: 4px;">🏦 Authorized Remittance & Bank Settlement Details:</strong>
-          <p style="margin: 2px 0;">Bank: <strong>${firm.bankName}</strong></p>
-          <p style="margin: 2px 0;">A/C Name: <strong>${firm.accountName}</strong></p>
-          <p style="margin: 2px 0;">A/C Number: <strong>${firm.accountNumber}</strong></p>
-          <p style="margin: 2px 0;">IFSC Code: <strong>${firm.ifscCode}</strong> (${firm.branch})</p>
-          <p style="margin: 4px 0 0 0; color: #166534; font-weight: 700;">Official UPI ID: <strong>${firm.upiId}</strong></p>
+      <div class="doc-summary-split" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; break-inside: avoid; page-break-inside: avoid;">
+        <div class="doc-bank-box" style="flex: 1 1 48%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; font-size: 10px; break-inside: avoid; page-break-inside: avoid;">
+          <strong style="color: #0f172a; display: block; margin-bottom: 3px; font-size: 10.5px;">🏦 Authorized Remittance & Bank Settlement Details:</strong>
+          <p style="margin: 1.5px 0;">Bank: <strong>${firm.bankName}</strong></p>
+          <p style="margin: 1.5px 0;">A/C Name: <strong>${firm.accountName}</strong></p>
+          <p style="margin: 1.5px 0;">A/C Number: <strong>${firm.accountNumber}</strong></p>
+          <p style="margin: 1.5px 0;">IFSC Code: <strong>${firm.ifscCode}</strong> (${firm.branch})</p>
+          <p style="margin: 3px 0 0 0; color: #166534; font-weight: 700;">Official UPI ID: <strong>${firm.upiId}</strong></p>
         </div>
 
-        <div style="flex: 1 1 48%;">
-          <table style="width: 100%; font-size: 11.5px; border-collapse: collapse;">
+        <div class="doc-calc-table-wrap" style="flex: 1 1 48%; break-inside: avoid; page-break-inside: avoid;">
+          <table class="doc-calc-table" style="width: 100%; font-size: 10.5px; border-collapse: collapse;">
             <tbody>
               <tr>
-                <td style="padding: 3px 0; color: #475569;">Subtotal (Taxable Value):</td>
-                <td style="padding: 3px 0; text-align: right; font-weight: 600;">₹ ${subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 2px 0; color: #475569;">Subtotal (Taxable Value):</td>
+                <td style="padding: 2px 0; text-align: right; font-weight: 600;">₹ ${subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
               </tr>
               <tr>
-                <td style="padding: 3px 0; color: #475569;">CGST (9%):</td>
-                <td style="padding: 3px 0; text-align: right; font-weight: 600;">₹ ${(totalGst / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 2px 0; color: #475569;">CGST (9%):</td>
+                <td style="padding: 2px 0; text-align: right; font-weight: 600;">₹ ${(totalGst / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
               </tr>
               <tr>
-                <td style="padding: 3px 0; color: #475569;">SGST (9%):</td>
-                <td style="padding: 3px 0; text-align: right; font-weight: 600;">₹ ${(totalGst / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 2px 0; color: #475569;">SGST (9%):</td>
+                <td style="padding: 2px 0; text-align: right; font-weight: 600;">₹ ${(totalGst / 2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
               </tr>
               <tr style="border-top: 1px solid #e2e8f0;">
-                <td style="padding: 4px 0; font-weight: 700; color: #0f172a;">Current Invoice Amount:</td>
-                <td style="padding: 4px 0; text-align: right; font-weight: 800; color: #0f172a;">₹ ${currentBillTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 3px 0; font-weight: 700; color: #0f172a;">Current Invoice Amount:</td>
+                <td style="padding: 3px 0; text-align: right; font-weight: 800; color: #0f172a;">₹ ${currentBillTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
               </tr>
               ${totalOutstanding > 0 ? `
                 <tr style="color: #b91c1c; font-weight: 700;">
-                  <td style="padding: 3px 0;">Previous Total Outstanding:</td>
-                  <td style="padding: 3px 0; text-align: right;">+ ₹ ${totalOutstanding.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                  <td style="padding: 2px 0;">Previous Total Outstanding:</td>
+                  <td style="padding: 2px 0; text-align: right;">+ ₹ ${totalOutstanding.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                 </tr>
               ` : ""}
               ${intermediateRows.map((r) => `
@@ -381,28 +382,28 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
               `).join("")}
               ${(declaredDiff !== 0 || adjustmentNote) ? `
                 <tr style="color: ${declaredDiff < 0 ? "#15803d" : declaredDiff > 0 ? "#1d4ed8" : "#0f766e"}; font-weight: 700; background: ${declaredDiff < 0 ? "#f0fdf4" : declaredDiff > 0 ? "#eff6ff" : "transparent"};">
-                  <td style="padding: 3px 4px;">
+                  <td style="padding: 2px 4px;">
                     ${declaredDiff < 0 ? "Declared Adjustment / Concession" : declaredDiff > 0 ? "Declared Adjustment / Surcharge" : "Declared Adjustment"}
                     ${adjustmentNote ? ` (${adjustmentNote})` : ""}:
                   </td>
-                  <td style="padding: 3px 4px; text-align: right;">
+                  <td style="padding: 2px 4px; text-align: right;">
                     ${declaredDiff < 0 ? "- " : declaredDiff > 0 ? "+ " : ""}₹ ${Math.abs(declaredDiff).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
               ` : ""}
-              <tr style="border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;">
-                <td style="padding: 6px 0; font-weight: 900; font-size: 13.5px; color: ${accentColor};">TOTAL NET PAYABLE:</td>
-                <td style="padding: 6px 0; text-align: right; font-weight: 900; font-size: 14.5px; color: ${accentColor};">
+              <tr style="border-top: 1.5px solid #cbd5e1; border-bottom: 1.5px solid #cbd5e1;">
+                <td style="padding: 4px 0; font-weight: 900; font-size: 12.5px; color: ${accentColor};">TOTAL NET PAYABLE:</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 900; font-size: 13.5px; color: ${accentColor};">
                   ₹ ${effectiveNetPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
               <tr>
-                <td style="padding: 4px 0; color: #166534; font-weight: 700;">Amount Paid / Cleared:</td>
-                <td style="padding: 4px 0; text-align: right; font-weight: 800; color: #166534;">₹ ${paidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 2px 0; color: #166534; font-weight: 700;">Amount Paid / Cleared:</td>
+                <td style="padding: 2px 0; text-align: right; font-weight: 800; color: #166534;">₹ ${paidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
               </tr>
-              <tr style="font-weight: 900; color: ${remainingBalance <= 0 ? "#15803d" : "#dc2626"}; font-size: 13px;">
-                <td style="padding: 4px 0;">Remaining Balance Due:</td>
-                <td style="padding: 4px 0; text-align: right;">₹ ${remainingBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+              <tr style="font-weight: 900; color: ${remainingBalance <= 0 ? "#15803d" : "#dc2626"}; font-size: 11.5px;">
+                <td style="padding: 3px 0;">Remaining Balance Due:</td>
+                <td style="padding: 3px 0; text-align: right;">₹ ${remainingBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
           </table>
@@ -410,40 +411,40 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
       </div>
 
       <!-- Amount in Words -->
-      <div style="background: #f1f5f9; border-left: 4px solid ${accentColor}; padding: 8px 12px; margin-bottom: 12px; font-size: 11.5px; border-radius: 4px;">
+      <div class="doc-amount-words" style="background: #f1f5f9; border-left: 3px solid ${accentColor}; padding: 5px 10px; margin-bottom: 6px; font-size: 10.5px; border-radius: 4px; break-inside: avoid; page-break-inside: avoid;">
         <strong>Amount in Words: </strong> ${amountWords}
       </div>
 
       <!-- Payment Status Stamp Badge -->
-      <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
-        <div style="font-size: 12px; color: #334155;">
+      <div class="doc-payment-status" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; break-inside: avoid; page-break-inside: avoid;">
+        <div style="font-size: 11px; color: #334155;">
           Payment Realization Mode: <strong style="color: ${accentColor};">${paymentMode}</strong>
         </div>
         <div>
-          <span style="display: inline-block; padding: 4px 14px; border-radius: 999px; font-size: 11px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; background: ${remainingBalance <= 0 ? "#ecfdf5" : paidAmount > 0 ? "#fef3c7" : "#fee2e2"}; color: ${remainingBalance <= 0 ? "#065f46" : paidAmount > 0 ? "#b45309" : "#991b1b"}; border: 1.5px solid ${remainingBalance <= 0 ? "#a7f3d0" : paidAmount > 0 ? "#fde68a" : "#fca5a5"};">
+          <span style="display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; background: ${remainingBalance <= 0 ? "#ecfdf5" : paidAmount > 0 ? "#fef3c7" : "#fee2e2"}; color: ${remainingBalance <= 0 ? "#065f46" : paidAmount > 0 ? "#b45309" : "#991b1b"}; border: 1px solid ${remainingBalance <= 0 ? "#a7f3d0" : paidAmount > 0 ? "#fde68a" : "#fca5a5"};">
             ${remainingBalance <= 0 ? "✓ FULLY PAID" : paidAmount > 0 ? "PARTIALLY PAID" : "PAYMENT DUE"}
           </span>
         </div>
       </div>
 
       <!-- Terms & Signature Grid -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-        <div style="font-size: 10.5px; color: #64748b; max-width: 55%; line-height: 1.5;">
-          <strong>Terms & Conditions:</strong><br />
+      <div class="doc-footer-grid" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px; break-inside: avoid; page-break-inside: avoid; page-break-before: auto;">
+        <div class="doc-terms" style="font-size: 9.5px; color: #64748b; max-width: 55%; line-height: 1.4; break-inside: avoid; page-break-inside: avoid;">
+          <strong style="color: #334155;">Terms & Conditions:</strong><br />
           1. All payments must be made to "${firm.accountName || firm.name || "Sri Kathiravan & Co."}" authorized bank account or official UPI.<br />
           2. This is a computer generated legal tax invoice and is binding under Indian GST Law.<br />
           3. Subject to Salem jurisdiction.
         </div>
 
-        <div style="display: flex; align-items: flex-end; gap: 24px;">
-          ${branding.showSeal ? `<div style="text-align: center;">${sealSvg}</div>` : ""}
-          <div style="text-align: right; font-size: 11.5px;">
-            <div style="font-family: cursive; font-size: 22px; color: ${accentColor}; font-weight: bold; margin-bottom: 2px;">
+        <div style="display: flex; align-items: flex-end; gap: 16px; break-inside: avoid; page-break-inside: avoid;">
+          ${branding.showSeal ? `<div class="doc-seal-box" style="text-align: center; break-inside: avoid; page-break-inside: avoid;">${sealSvg}</div>` : ""}
+          <div class="doc-signatory" style="text-align: right; font-size: 11px; break-inside: avoid; page-break-inside: avoid;">
+            <div style="font-family: 'Dancing Script', cursive; font-size: 20px; color: ${accentColor}; font-weight: bold; margin-bottom: 2px;">
               ${branding.signatoryName || "Kathiravan & Co."}
             </div>
-            <div style="width: 140px; height: 1.5px; background: ${accentColor}; margin: 4px 0 2px auto;"></div>
+            <div style="width: 130px; height: 1.5px; background: ${accentColor}; margin: 3px 0 2px auto;"></div>
             <strong>FOR ${firm.name}</strong><br />
-            <small style="color: #64748b;">${branding.signatoryDesignation || "Authorized Signatory"}</small>
+            <small style="color: #64748b; font-size: 9.5px;">${branding.signatoryDesignation || "Authorized Signatory"}</small>
           </div>
         </div>
       </div>

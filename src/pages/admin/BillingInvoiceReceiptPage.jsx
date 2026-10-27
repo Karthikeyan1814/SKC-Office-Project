@@ -32,6 +32,10 @@ import {
   HiOutlineMagnifyingGlass,
   HiOutlineExclamationCircle,
   HiOutlineArrowTrendingUp,
+  HiOutlineChevronDown,
+  HiOutlineChevronUp,
+  HiOutlinePhone,
+  HiOutlineEnvelope,
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
 import { shareViaWhatsApp, generateDocumentBlob } from "../../utils/whatsappShareHelper";
@@ -106,6 +110,11 @@ export default function BillingInvoiceReceiptPage() {
   // Available Clients from Backend
   const [availableClients, setAvailableClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [isClientSearchOpen, setIsClientSearchOpen] = useState(false);
+  const [highlightedClientIndex, setHighlightedClientIndex] = useState(-1);
+  const clientDropdownRef = useRef(null);
+  const clientInputRef = useRef(null);
 
   // Unique Serial Number Management
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -578,6 +587,120 @@ export default function BillingInvoiceReceiptPage() {
     }
   };
 
+  // Click-outside listener & Escape handler for client search dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target)) {
+        setIsClientSearchOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setIsClientSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  // Filtered clients based on real-time search query
+  const filteredClients = useMemo(() => {
+    if (!clientSearchQuery || !clientSearchQuery.trim()) return availableClients;
+    const q = clientSearchQuery.toLowerCase().trim();
+    const qDigits = clientSearchQuery.replace(/\D/g, "");
+    return availableClients.filter((c) => {
+      const name = (c.name || "").toLowerCase();
+      const legal = (c.legalname || c.legalName || "").toLowerCase();
+      const contact = (c.contactPerson || "").toLowerCase();
+      const mobile = (c.mobile || "").replace(/\D/g, "");
+      const email = (c.email || "").toLowerCase();
+      const gst = (c.gstnumber || c.gstin || "").toLowerCase();
+      const pan = (c.pan || c.pannumber || "").toLowerCase();
+
+      return (
+        name.includes(q) ||
+        legal.includes(q) ||
+        contact.includes(q) ||
+        email.includes(q) ||
+        gst.includes(q) ||
+        pan.includes(q) ||
+        (qDigits && mobile.includes(qDigits))
+      );
+    });
+  }, [availableClients, clientSearchQuery]);
+
+  // Currently selected client object
+  const selectedClientObj = useMemo(() => {
+    if (!selectedClientId) return null;
+    return availableClients.find((c) => String(c.id) === String(selectedClientId)) || null;
+  }, [availableClients, selectedClientId]);
+
+  // Handle client selection from search dropdown
+  const handlePickClient = (c) => {
+    handleSelectClient(c.id);
+    setIsClientSearchOpen(false);
+    setClientSearchQuery("");
+    setHighlightedClientIndex(-1);
+  };
+
+  // Clear or unlink client selection
+  const handleClearClientSelection = (clearFields = false) => {
+    setSelectedClientId("");
+    setClientUnpaidInvoices([]);
+    setTotalOutstanding(0);
+    setClientSearchQuery("");
+    setIsClientSearchOpen(false);
+    setHighlightedClientIndex(-1);
+    if (clearFields) {
+      setClient({
+        name: "",
+        contactPerson: "",
+        mobile: "",
+        email: "",
+        gstin: "",
+        pan: "",
+        address: "",
+        state: "Tamil Nadu",
+        stateCode: "33",
+      });
+      toast.success("Client unlinked. Fields reset for custom client entry.");
+    } else {
+      toast.success("Client autofill unlinked. Details kept for manual editing.");
+    }
+  };
+
+  // Keyboard navigation for client search input
+  const handleClientSearchKeyDown = (e) => {
+    if (!isClientSearchOpen) {
+      if (e.key === "ArrowDown" || e.key === "Enter") {
+        setIsClientSearchOpen(true);
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedClientIndex((prev) =>
+        prev < filteredClients.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedClientIndex((prev) =>
+        prev > 0 ? prev - 1 : filteredClients.length - 1
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlightedClientIndex >= 0 && filteredClients[highlightedClientIndex]) {
+        handlePickClient(filteredClients[highlightedClientIndex]);
+      } else if (filteredClients.length > 0) {
+        handlePickClient(filteredClients[0]);
+      }
+    }
+  };
+
   // ─── COMPUTATIONS ───
   const itemsCalculated = useMemo(() => {
     return items.map((item) => {
@@ -996,29 +1119,52 @@ export default function BillingInvoiceReceiptPage() {
   };
 
   // ─── 100% FAITHFUL PRINT & PDF DOWNLOAD ───
-  const handlePrintDocument = () => {
-    const isReceipt = mode === "RECEIPT";
-    const docTitle = isReceipt ? `Receipt_${receiptNumber}` : `Invoice_${invoiceNumber}`;
+  const handlePrintDocument = (customDoc = null) => {
+    const isDoc = !!customDoc;
+    const isReceipt = isDoc ? customDoc.type === "RECEIPT" : mode === "RECEIPT";
+    const docNo = isDoc ? customDoc.docNumber : (isReceipt ? receiptNumber : invoiceNumber);
+    const docTitle = `${isReceipt ? "Receipt" : "Invoice"}_${docNo}`;
+    const orientation = isReceipt ? "landscape" : "portrait";
 
-    const printableElement = document.getElementById("billing-printable-area");
-    if (!printableElement) {
-      toast.error("Document preview element not found.");
-      return;
-    }
+    const docToPrint = customDoc || {
+      type: mode,
+      docNumber: docNo,
+      date: docDate,
+      time: docTime,
+      dueDate,
+      referenceNo,
+      clientName: client.name,
+      clientLegalName: client.contactPerson,
+      clientMobile: client.mobile,
+      clientEmail: client.email,
+      clientGstin: client.gstin,
+      clientPan: client.pan,
+      clientAddress: client.address,
+      clientState: client.state,
+      clientStateCode: client.stateCode,
+      items: itemsCalculated || items,
+      totalAmount: netPayable,
+      currentInvoiceTotal: currentInvoiceTotal,
+      totalOutstanding: Number(totalOutstanding) || 0,
+      declaredNetWorthPayable: declaredNetWorthPayable,
+      declaredAdjustmentDiff: declaredDiff,
+      declaredAdjustmentNote: activeAdjustmentNote,
+      paidAmount: amountPaid,
+      remainingBalance,
+      paymentMode,
+      receiptTowards,
+      intermediateRows,
+      customColumns,
+      accentColor,
+    };
 
-    let stylesHtml = "";
-    const styleElements = document.querySelectorAll("style, link[rel='stylesheet']");
-    styleElements.forEach((el) => {
-      stylesHtml += el.outerHTML + "\n";
-    });
+    const docHtml = buildDocPrintHtml(docToPrint, firm, brandingSettings);
 
     const printWindow = window.open("", "_blank", "width=1200,height=900");
     if (!printWindow) {
       toast.error("Please allow popups to download/print the PDF.");
       return;
     }
-
-    const orientation = isReceipt ? "landscape" : "portrait";
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -1029,10 +1175,9 @@ export default function BillingInvoiceReceiptPage() {
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-          ${stylesHtml}
           <style>
             @page {
-              size: ${orientation};
+              size: A4 ${orientation};
               margin: ${isReceipt ? "6mm" : "8mm"};
             }
             *, *::before, *::after {
@@ -1054,133 +1199,38 @@ export default function BillingInvoiceReceiptPage() {
               margin: 0 auto !important;
               padding: 0 !important;
             }
-            .doc-paper-invoice {
-              box-shadow: none !important;
-              border: 1px solid #cbd5e1 !important;
+            /* Multi-page & Single-page print rules */
+            table {
               width: 100% !important;
-              max-width: 100% !important;
-              padding: 16px 20px !important;
-              margin: 0 auto !important;
-              background: #ffffff !important;
-              box-sizing: border-box !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
             }
-            .doc-paper-receipt {
-              box-shadow: none !important;
-              border: 2px solid #059669 !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              padding: 16px 20px !important;
-              margin: 0 auto !important;
-              background: #ffffff !important;
-              box-sizing: border-box !important;
+            thead {
+              display: table-header-group !important;
             }
-            .doc-invoice-stripe {
-              height: 6px !important;
+            tr {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              page-break-after: auto !important;
+              break-after: auto !important;
             }
-            .doc-addresses-grid {
-              display: flex !important;
-              justify-content: space-between !important;
-              gap: 16px !important;
-              margin: 12px 0 !important;
-              background: #f8fafc !important;
-              padding: 12px 14px !important;
-              border-radius: 8px !important;
-              border: 1px solid #e2e8f0 !important;
+            .doc-summary-split,
+            .doc-bank-box,
+            .doc-calc-table-wrap,
+            .doc-amount-words,
+            .doc-payment-status {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
-            .doc-billed-to {
-              flex: 1.2 1 55% !important;
-            }
-            .doc-invoice-dates {
-              flex: 1 1 40% !important;
-            }
-            .doc-summary-split {
-              display: flex !important;
-              justify-content: space-between !important;
-              align-items: flex-start !important;
-              gap: 16px !important;
-              margin: 12px 0 !important;
-            }
-            .doc-bank-box {
-              flex: 1 1 48% !important;
-            }
-            .doc-calc-table-wrap {
-              flex: 1 1 48% !important;
-            }
-            .doc-calc-table {
-              width: 100% !important;
-            }
-            .doc-footer-grid {
-              display: flex !important;
-              justify-content: space-between !important;
-              align-items: flex-end !important;
-              margin-top: 14px !important;
-            }
-            .doc-receipt-header {
-              display: flex !important;
-              justify-content: space-between !important;
-              align-items: center !important;
-              border-bottom: 2px solid #059669 !important;
-              padding-bottom: 8px !important;
-              margin-bottom: 10px !important;
-            }
+            .doc-footer-grid,
+            .doc-terms,
+            .doc-seal-box,
+            .doc-signatory,
             .doc-receipt-footer {
-              display: flex !important;
-              justify-content: space-between !important;
-              align-items: flex-end !important;
-              border-top: 1px solid #e2e8f0 !important;
-              padding-top: 10px !important;
-              margin-top: 12px !important;
-            }
-            .doc-table, .receipt-items-table {
-              width: 100% !important;
-              table-layout: fixed !important;
-              border-collapse: collapse !important;
-              font-size: 9px !important;
-              margin-bottom: 14px !important;
-              word-break: break-word !important;
-              overflow-wrap: break-word !important;
-              box-sizing: border-box !important;
-            }
-            .doc-table th {
-              color: #ffffff !important;
-              background: ${accentColor} !important;
-              padding: 5px 3px !important;
-              font-size: 8.5px !important;
-              font-weight: 800 !important;
-              white-space: normal !important;
-              word-break: break-word !important;
-              overflow-wrap: break-word !important;
-              line-height: 1.15 !important;
-              vertical-align: middle !important;
-              box-sizing: border-box !important;
-            }
-            .doc-table td {
-              padding: 5px 3px !important;
-              border-bottom: 1px solid #e2e8f0 !important;
-              font-size: 9px !important;
-              white-space: normal !important;
-              word-break: break-word !important;
-              overflow-wrap: break-word !important;
-              line-height: 1.2 !important;
-              vertical-align: top !important;
-              box-sizing: border-box !important;
-            }
-            .receipt-items-table th {
-              color: #065f46 !important;
-              background: #ecfdf5 !important;
-              padding: 5px 3px !important;
-              font-size: 8.5px !important;
-              white-space: normal !important;
-              word-break: break-word !important;
-              box-sizing: border-box !important;
-            }
-            .receipt-items-table td {
-              padding: 5px 3px !important;
-              border-bottom: 1px solid #e2e8f0 !important;
-              font-size: 10px !important;
-              white-space: normal !important;
-              word-break: break-word !important;
-              box-sizing: border-box !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              page-break-before: auto !important;
+              break-before: auto !important;
             }
             .no-print {
               display: none !important;
@@ -1189,14 +1239,14 @@ export default function BillingInvoiceReceiptPage() {
         </head>
         <body>
           <div class="print-wrapper">
-            ${printableElement.innerHTML}
+            ${docHtml}
           </div>
           <script>
             window.addEventListener('load', function() {
               setTimeout(function() {
                 window.focus();
                 window.print();
-              }, 300);
+              }, 250);
             });
           </script>
         </body>
@@ -1218,72 +1268,108 @@ export default function BillingInvoiceReceiptPage() {
       const html2pdfModule = await import("html2pdf.js");
       const html2pdf = html2pdfModule.default || html2pdfModule;
 
-      let elementToPdf = null;
-      let tempContainer = null;
-
-      if (!customDoc) {
-        elementToPdf = document.getElementById("billing-printable-area");
-      }
-
-      if (!elementToPdf) {
-        tempContainer = document.createElement("div");
-        tempContainer.style.position = "fixed";
-        tempContainer.style.left = "-9999px";
-        tempContainer.style.top = "0";
-        tempContainer.style.width = isReceipt ? "280mm" : "198mm";
-        tempContainer.innerHTML = buildDocPrintHtml(customDoc || {
-          type: mode,
-          docNumber: docNo,
-          date: docDate,
-          time: docTime,
-          dueDate,
-          clientName: client.name,
-          clientLegalName: client.contactPerson,
-          clientMobile: client.mobile,
-          clientEmail: client.email,
-          clientGstin: client.gstin,
-          clientPan: client.pan,
-          clientAddress: client.address,
-          clientState: client.state,
-          clientStateCode: client.stateCode,
-          items,
-          totalAmount: netPayable,
-          currentInvoiceTotal: currentInvoiceTotal,
-          totalOutstanding: Number(totalOutstanding) || 0,
-          declaredNetWorthPayable: declaredNetWorthPayable,
-          declaredAdjustmentDiff: declaredDiff,
-          declaredAdjustmentNote: activeAdjustmentNote,
-          paidAmount: amountPaid,
-          remainingBalance,
-          paymentMode,
-          receiptTowards,
-          intermediateRows,
-          customColumns,
-        }, firm, brandingSettings);
-        document.body.appendChild(tempContainer);
-        elementToPdf = tempContainer;
-      }
-
-      const opt = {
-        margin: isReceipt ? [6, 6, 6, 6] : [8, 8, 8, 8],
-        filename: `${docTitle}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: isReceipt ? "landscape" : "portrait" },
+      const docToPrint = customDoc || {
+        type: mode,
+        docNumber: docNo,
+        date: docDate,
+        time: docTime,
+        dueDate,
+        referenceNo,
+        clientName: client.name,
+        clientLegalName: client.contactPerson,
+        clientMobile: client.mobile,
+        clientEmail: client.email,
+        clientGstin: client.gstin,
+        clientPan: client.pan,
+        clientAddress: client.address,
+        clientState: client.state,
+        clientStateCode: client.stateCode,
+        items: itemsCalculated || items,
+        totalAmount: netPayable,
+        currentInvoiceTotal: currentInvoiceTotal,
+        totalOutstanding: Number(totalOutstanding) || 0,
+        declaredNetWorthPayable: declaredNetWorthPayable,
+        declaredAdjustmentDiff: declaredDiff,
+        declaredAdjustmentNote: activeAdjustmentNote,
+        paidAmount: amountPaid,
+        remainingBalance,
+        paymentMode,
+        receiptTowards,
+        intermediateRows,
+        customColumns,
+        accentColor,
       };
 
-      await html2pdf().set(opt).from(elementToPdf).save();
+      const docHtml = buildDocPrintHtml(docToPrint, firm, brandingSettings);
 
-      if (tempContainer) {
-        document.body.removeChild(tempContainer);
+      // Create a dedicated off-screen (within 0,0 viewport) mount container
+      const mount = document.createElement("div");
+      mount.id = "skc-pdf-download-mount";
+      mount.style.position = "fixed";
+      mount.style.left = "0px";
+      mount.style.top = "0px";
+      mount.style.width = isReceipt ? "1122px" : "794px";
+      mount.style.zIndex = "-999999";
+      mount.style.opacity = "1";
+      mount.style.pointerEvents = "none";
+      mount.style.backgroundColor = "#ffffff";
+      mount.style.margin = "0";
+      mount.style.padding = "0";
+      mount.innerHTML = docHtml;
+
+      document.body.appendChild(mount);
+
+      // Ensure fonts and images are ready
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.ready; } catch {}
       }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const opt = {
+        margin: isReceipt ? [6, 6, 6, 6] : [6, 6, 6, 6],
+        filename: `${docTitle}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: isReceipt ? 1122 : 794,
+          x: 0,
+          y: 0,
+        },
+        jsPDF: {
+          unit: "mm",
+          format: "a4",
+          orientation: isReceipt ? "landscape" : "portrait",
+        },
+        pagebreak: {
+          mode: ["avoid-all", "css", "legacy"],
+          avoid: [
+            ".doc-summary-split",
+            ".doc-footer-grid",
+            ".doc-terms",
+            ".doc-seal-box",
+            ".doc-signatory",
+            ".doc-payment-status",
+            ".doc-amount-words",
+            "tr",
+          ],
+        },
+      };
+
+      await html2pdf().set(opt).from(mount).save();
+
+      document.body.removeChild(mount);
 
       toast.dismiss("pdf-download");
       toast.success(`Downloaded ${docTitle}.pdf successfully!`);
     } catch (err) {
       console.error("PDF generation error:", err);
       toast.dismiss("pdf-download");
-      handlePrintDocument();
+      toast.error("Falling back to direct print dialog...");
+      handlePrintDocument(customDoc);
     }
   };
 
@@ -1838,10 +1924,7 @@ export default function BillingInvoiceReceiptPage() {
                             {/* Print Document */}
                             <button
                               type="button"
-                              onClick={() => {
-                                handleLoadDocument(doc);
-                                setTimeout(handlePrintDocument, 250);
-                              }}
+                              onClick={() => handlePrintDocument(doc)}
                               title="Send to printer"
                               style={{
                                 padding: "5px 9px",
@@ -2541,23 +2624,272 @@ export default function BillingInvoiceReceiptPage() {
 
               <div className="billing-form-group full-width">
                 <label className="billing-label">
-                  <span>Quick-Fill from Registered Clients:</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <HiOutlineMagnifyingGlass size={15} color={accentColor} />
+                    Choose Client to Autofill ({mode === "INVOICE" ? "Tax Invoice" : "Payment Receipt"}):
+                  </span>
                   <small style={{ color: "#2563eb", fontWeight: "600" }}>
-                    ({availableClients.length} clients loaded from database)
+                    ({availableClients.length} registered clients loaded from database)
                   </small>
                 </label>
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => handleSelectClient(e.target.value)}
-                  className="billing-select"
-                >
-                  <option value="">-- Choose client to autofill, or edit details directly below --</option>
-                  {availableClients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.mobile ? `(${c.mobile})` : ""} {c.gstnumber ? `• GST: ${c.gstnumber}` : ""}
-                    </option>
-                  ))}
-                </select>
+
+                <div className="billing-client-search-container" ref={clientDropdownRef}>
+                  <div className="billing-client-search-input-wrap">
+                    <span className="billing-client-search-icon">
+                      <HiOutlineMagnifyingGlass size={18} />
+                    </span>
+                    <input
+                      ref={clientInputRef}
+                      type="text"
+                      className="billing-client-search-input"
+                      placeholder="Type client name, mobile, GSTIN, PAN or email to search and autofill..."
+                      value={clientSearchQuery}
+                      onChange={(e) => {
+                        setClientSearchQuery(e.target.value);
+                        setIsClientSearchOpen(true);
+                        setHighlightedClientIndex(0);
+                      }}
+                      onFocus={() => setIsClientSearchOpen(true)}
+                      onClick={() => setIsClientSearchOpen(true)}
+                      onKeyDown={handleClientSearchKeyDown}
+                    />
+                    <div className="billing-client-search-actions">
+                      {clientSearchQuery && (
+                        <button
+                          type="button"
+                          className="billing-client-search-btn"
+                          title="Clear search text"
+                          onClick={() => {
+                            setClientSearchQuery("");
+                            clientInputRef.current?.focus();
+                          }}
+                        >
+                          <HiOutlineXMark size={16} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="billing-client-search-btn"
+                        title={isClientSearchOpen ? "Close list" : "Browse all clients"}
+                        onClick={() => setIsClientSearchOpen((prev) => !prev)}
+                      >
+                        {isClientSearchOpen ? (
+                          <HiOutlineChevronUp size={16} />
+                        ) : (
+                          <HiOutlineChevronDown size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {isClientSearchOpen && (
+                    <div className="billing-client-dropdown-menu">
+                      <div className="billing-client-dropdown-header">
+                        <span>
+                          {clientSearchQuery
+                            ? `Found ${filteredClients.length} matching client${filteredClients.length === 1 ? "" : "s"}`
+                            : `All Registered Clients (${availableClients.length})`}
+                        </span>
+                        <span style={{ fontSize: "11px", fontWeight: "500", textTransform: "none", color: "#94a3b8" }}>
+                          Press ESC to close
+                        </span>
+                      </div>
+
+                      <div className="billing-client-dropdown-list">
+                        {/* Option: Clear / Custom Manual Entry */}
+                        <div
+                          className="billing-client-dropdown-item"
+                          onClick={() => handleClearClientSelection(false)}
+                          style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}
+                        >
+                          <div className="billing-client-avatar custom">
+                            <HiOutlineUser size={16} />
+                          </div>
+                          <div className="billing-client-meta-wrap">
+                            <div className="billing-client-main-title" style={{ color: "#475569" }}>
+                              -- Enter / Edit Custom Client Details Manually --
+                            </div>
+                            <div className="billing-client-contact-sub">
+                              Unlink database autofill and type custom client details directly in Section 2 below.
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Filtered Clients */}
+                        {filteredClients.map((c, idx) => {
+                          const isSelected = String(c.id) === String(selectedClientId);
+                          const isHighlighted = idx === highlightedClientIndex;
+                          const initial = (c.name || "C").charAt(0).toUpperCase();
+
+                          return (
+                            <div
+                              key={c.id}
+                              className={`billing-client-dropdown-item ${isSelected ? "is-selected" : ""} ${isHighlighted ? "is-highlighted" : ""}`}
+                              onClick={() => handlePickClient(c)}
+                            >
+                              <div className="billing-client-avatar">
+                                {initial}
+                              </div>
+                              <div className="billing-client-meta-wrap">
+                                <div className="billing-client-main-title">
+                                  <span>{c.name}</span>
+                                  {c.legalname && c.legalname !== c.name && (
+                                    <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "500" }}>
+                                      ({c.legalname})
+                                    </span>
+                                  )}
+                                  {c.membershipPlan && (
+                                    <span className="billing-client-badge-pill plan">
+                                      {c.membershipPlan}
+                                    </span>
+                                  )}
+                                </div>
+                                {(c.contactPerson || c.address || c.city) && (
+                                  <div className="billing-client-contact-sub">
+                                    {c.contactPerson && <span>Contact: {c.contactPerson}</span>}
+                                    {c.contactPerson && (c.city || c.address) && <span> • </span>}
+                                    {c.city || c.address ? <span>{c.city || c.address}</span> : null}
+                                  </div>
+                                )}
+                                <div className="billing-client-badges">
+                                  {c.mobile && (
+                                    <span className="billing-client-badge-pill phone">
+                                      <HiOutlinePhone size={12} />
+                                      {c.mobile}
+                                    </span>
+                                  )}
+                                  {(c.gstnumber || c.gstin) && (
+                                    <span className="billing-client-badge-pill gstin">
+                                      GST: {c.gstnumber || c.gstin}
+                                    </span>
+                                  )}
+                                  {(c.pan || c.pannumber) && (
+                                    <span className="billing-client-badge-pill">
+                                      PAN: {c.pan || c.pannumber}
+                                    </span>
+                                  )}
+                                  {c.email && (
+                                    <span className="billing-client-badge-pill email">
+                                      <HiOutlineEnvelope size={12} />
+                                      {c.email}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <div style={{ color: "#2563eb", display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", fontWeight: "700" }}>
+                                  <HiOutlineCheckCircle size={18} />
+                                  <span>Selected</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {filteredClients.length === 0 && (
+                          <div style={{ padding: "24px 16px", textAlign: "center", color: "#64748b" }}>
+                            <p style={{ margin: "0 0 8px 0", fontSize: "13.5px", fontWeight: "600", color: "#334155" }}>
+                              No registered clients found matching &quot;{clientSearchQuery}&quot;
+                            </p>
+                            <p style={{ margin: 0, fontSize: "12px" }}>
+                              You can directly enter client details manually in Section 2 below.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Active Selected Client Summary Banner */}
+                  {selectedClientObj && (
+                    <div className="billing-client-selected-banner">
+                      <div className="billing-client-selected-info">
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            background: "#10b981",
+                            color: "#ffffff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <HiOutlineCheckCircle size={18} />
+                        </div>
+                        <div className="billing-client-selected-details">
+                          <div className="billing-client-selected-name">
+                            <span>{selectedClientObj.name}</span>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                background: "#dcfce7",
+                                color: "#166534",
+                                border: "1px solid #86efac",
+                                borderRadius: "4px",
+                                padding: "1px 6px",
+                                fontWeight: "700",
+                              }}
+                            >
+                              AUTOFILLED FROM DATABASE
+                            </span>
+                            {totalOutstanding > 0 && (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  background: "#fee2e2",
+                                  color: "#991b1b",
+                                  border: "1px solid #fca5a5",
+                                  borderRadius: "4px",
+                                  padding: "1px 6px",
+                                  fontWeight: "700",
+                                }}
+                              >
+                                Outstanding: ₹{totalOutstanding.toLocaleString("en-IN")}
+                              </span>
+                            )}
+                          </div>
+                          <div className="billing-client-selected-sub">
+                            {selectedClientObj.mobile && <span>📞 {selectedClientObj.mobile}</span>}
+                            {(selectedClientObj.gstnumber || selectedClientObj.gstin) && (
+                              <span>• GST: {selectedClientObj.gstnumber || selectedClientObj.gstin}</span>
+                            )}
+                            {(selectedClientObj.pan || selectedClientObj.pannumber) && (
+                              <span>• PAN: {selectedClientObj.pan || selectedClientObj.pannumber}</span>
+                            )}
+                            {selectedClientObj.email && <span>• ✉ {selectedClientObj.email}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="billing-client-selected-actions">
+                        <button
+                          type="button"
+                          className="billing-client-action-btn change"
+                          onClick={() => {
+                            setIsClientSearchOpen(true);
+                            clientInputRef.current?.focus();
+                          }}
+                        >
+                          <HiOutlineMagnifyingGlass size={13} />
+                          Change Client
+                        </button>
+                        <button
+                          type="button"
+                          className="billing-client-action-btn unlink"
+                          title="Unlink autofill so you can edit details manually without affecting registered client"
+                          onClick={() => handleClearClientSelection(false)}
+                        >
+                          <HiOutlineXMark size={13} />
+                          Unlink Autofill
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

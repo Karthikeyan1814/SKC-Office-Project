@@ -237,10 +237,9 @@ export default function ClientBillingPage() {
           <title>${docTitle}</title>
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-          ${stylesHtml}
           <style>
             @page {
-              size: ${orientation};
+              size: A4 ${orientation};
               margin: ${isReceipt ? "6mm" : "8mm"};
             }
             *, *::before, *::after {
@@ -253,7 +252,7 @@ export default function ClientBillingPage() {
               margin: 0 !important;
               padding: 0 !important;
               background: #ffffff !important;
-              font-family: 'Inter', sans-serif !important;
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
               color: #1e293b !important;
             }
             .print-wrapper {
@@ -261,6 +260,42 @@ export default function ClientBillingPage() {
               max-width: ${isReceipt ? "280mm" : "198mm"} !important;
               margin: 0 auto !important;
               padding: 0 !important;
+            }
+            /* Multi-page & Single-page print rules */
+            table {
+              width: 100% !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+            }
+            thead {
+              display: table-header-group !important;
+            }
+            tr {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              page-break-after: auto !important;
+              break-after: auto !important;
+            }
+            .doc-summary-split,
+            .doc-bank-box,
+            .doc-calc-table-wrap,
+            .doc-amount-words,
+            .doc-payment-status {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            .doc-footer-grid,
+            .doc-terms,
+            .doc-seal-box,
+            .doc-signatory,
+            .doc-receipt-footer {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              page-break-before: auto !important;
+              break-before: auto !important;
+            }
+            .no-print {
+              display: none !important;
             }
           </style>
         </head>
@@ -273,7 +308,7 @@ export default function ClientBillingPage() {
               setTimeout(function() {
                 window.focus();
                 window.print();
-              }, 300);
+              }, 250);
             });
           </script>
         </body>
@@ -292,24 +327,66 @@ export default function ClientBillingPage() {
       const html2pdfModule = await import("html2pdf.js");
       const html2pdf = html2pdfModule.default || html2pdfModule;
 
-      const container = document.createElement("div");
-      container.style.position = "fixed";
-      container.style.left = "-9999px";
-      container.style.top = "0";
-      container.style.width = isReceipt ? "280mm" : "198mm";
-      container.innerHTML = buildDocPrintHtml(doc, firmInfo);
-      document.body.appendChild(container);
+      const docHtml = buildDocPrintHtml(doc, firmInfo);
+
+      // Create a dedicated off-screen (within 0,0 viewport) mount container
+      const mount = document.createElement("div");
+      mount.id = "skc-client-pdf-mount";
+      mount.style.position = "fixed";
+      mount.style.left = "0px";
+      mount.style.top = "0px";
+      mount.style.width = isReceipt ? "1122px" : "794px";
+      mount.style.zIndex = "-999999";
+      mount.style.opacity = "1";
+      mount.style.pointerEvents = "none";
+      mount.style.backgroundColor = "#ffffff";
+      mount.style.margin = "0";
+      mount.style.padding = "0";
+      mount.innerHTML = docHtml;
+
+      document.body.appendChild(mount);
+
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.ready; } catch {}
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       const opt = {
-        margin: isReceipt ? [6, 6, 6, 6] : [8, 8, 8, 8],
+        margin: isReceipt ? [6, 6, 6, 6] : [6, 6, 6, 6],
         filename: `${docTitle}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: isReceipt ? "landscape" : "portrait" },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: isReceipt ? 1122 : 794,
+          x: 0,
+          y: 0,
+        },
+        jsPDF: {
+          unit: "mm",
+          format: "a4",
+          orientation: isReceipt ? "landscape" : "portrait",
+        },
+        pagebreak: {
+          mode: ["avoid-all", "css", "legacy"],
+          avoid: [
+            ".doc-summary-split",
+            ".doc-footer-grid",
+            ".doc-terms",
+            ".doc-seal-box",
+            ".doc-signatory",
+            ".doc-payment-status",
+            ".doc-amount-words",
+            "tr",
+          ],
+        },
       };
 
-      await html2pdf().set(opt).from(container).save();
-      document.body.removeChild(container);
+      await html2pdf().set(opt).from(mount).save();
+      document.body.removeChild(mount);
       toast.dismiss("client-pdf-dl");
       toast.success(`Downloaded ${docTitle}.pdf`);
     } catch (err) {
