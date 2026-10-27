@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import "../../styles/ClientPortal.css";
 import FileUploadProgress from "../../components/FileUploadProgress";
 import { triggerBrowserDownload, extractFileNameFromHeaders } from "../../utils/fileDownloader";
+import { shareViaWhatsApp, shareViaEmail } from "../../utils/whatsappShareHelper";
 import { FaWhatsapp, FaEnvelope, FaShareAlt } from "react-icons/fa";
 import {
   HiOutlineFolderOpen,
@@ -109,24 +110,63 @@ export default function ClientFilesPage() {
     setShowShareModal(true);
   };
 
-  const handleWhatsAppShare = (f) => {
-    const text = `*SKC Client Document Share*\n📄 *Document:* ${f.fileName}\n📁 *Folder:* ${f.folderName || "General"}\n\nShared via SKC Client Portal: ${window.location.origin}`;
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, "_blank");
+  const handleWhatsAppShare = async (f) => {
+    if (!f) return;
+    try {
+      toast.loading(`Preparing ${f.fileName} for WhatsApp...`, { id: "client-wa-share" });
+      const res = await api.get(`/Client/Files/${f.id}/Download`, {
+        responseType: "blob",
+      });
+      const fileBlob = res.data;
+      const contentType = res.headers["content-type"] || f.fileType || fileBlob.type || "application/octet-stream";
+      const resolvedName = extractFileNameFromHeaders(res.headers, f.fileName);
+      toast.dismiss("client-wa-share");
+
+      await shareViaWhatsApp({
+        fileBlob,
+        fileName: resolvedName,
+        fileMimeType: contentType,
+        phone: localStorage.getItem("skc-mobile") || "",
+        title: resolvedName,
+      });
+    } catch (e) {
+      toast.dismiss("client-wa-share");
+      toast.error("Failed to prepare file for WhatsApp");
+    }
   };
 
-  const handleEmailShare = (f) => {
-    const subject = encodeURIComponent(`Document: ${f.fileName}`);
-    const body = encodeURIComponent(`Hello,\n\nPlease find the reference for document "${f.fileName}" from SKC Office Client Portal.\n\nPortal Link: ${window.location.origin}\n\nRegards,`);
-    const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
-    window.location.href = mailtoUrl;
+  const handleEmailShare = async (f) => {
+    if (!f) return;
+    try {
+      toast.loading(`Preparing ${f.fileName} for Email...`, { id: "client-email-share" });
+      const res = await api.get(`/Client/Files/${f.id}/Download`, {
+        responseType: "blob",
+      });
+      const fileBlob = res.data;
+      const contentType = res.headers["content-type"] || f.fileType || fileBlob.type || "application/octet-stream";
+      const resolvedName = extractFileNameFromHeaders(res.headers, f.fileName);
+      toast.dismiss("client-email-share");
+
+      await shareViaEmail({
+        fileBlob,
+        fileName: resolvedName,
+        fileMimeType: contentType,
+        email: "",
+        title: resolvedName,
+      });
+    } catch (e) {
+      toast.dismiss("client-email-share");
+      toast.error("Failed to prepare file for Email");
+    }
   };
 
   const handleGmailWebShare = (f) => {
+    if (!f) return;
+    handleDownload(f.id, f.fileName);
     const subject = encodeURIComponent(`Document: ${f.fileName}`);
-    const body = encodeURIComponent(`Hello,\n\nPlease find the reference for document "${f.fileName}" from SKC Office Client Portal.\n\nPortal Link: ${window.location.origin}\n\nRegards,`);
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}`;
     window.open(gmailUrl, "_blank");
+    toast.success("Document downloaded! Click 📎 in Gmail to attach.", { duration: 5000 });
   };
 
   const handleDownload = async (fileId, fileName) => {

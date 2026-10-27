@@ -23,8 +23,8 @@ import {
   HiOutlineFolderOpen,
   HiOutlineEye,
 } from "react-icons/hi2";
+import { shareViaWhatsApp, shareViaEmail } from "../../utils/whatsappShareHelper";
 import { FaWhatsapp, FaEnvelope, FaShareAlt } from "react-icons/fa";
-import { shareViaWhatsApp } from "../../utils/whatsappShareHelper";
 
 const CATEGORIES = [
   { key: "ALL", label: "All Documents", icon: "/all_files.svg" },
@@ -233,29 +233,52 @@ export default function FileManagementPage() {
 
   const handleWhatsAppShare = async (f) => {
     if (!f) return;
+    const phoneClean = (f.client?.mobile || "").replace(/\D/g, "");
     try {
-      const clientInfo = f.client ? `${f.client.name}` : "Personal / Internal";
-      const phoneClean = (f.client?.mobile || "").replace(/\D/g, "");
-      const directDocUrl = `${window.location.protocol}//${window.location.hostname}:8080/skc/Public/Files/${f.id}/View`;
-      const text = `*Sri Kathiravan & Co. - Document Share*\n\n` +
-        `Hello ${f.client?.name || "Client"},\n` +
-        `Here is your official document from Sri Kathiravan & Co.:\n` +
-        `📄 *File:* ${f.fileName}\n` +
-        `📁 *Category:* ${f.category || "General"}\n` +
-        `👤 *Client:* ${clientInfo}\n\n` +
-        `🔗 *View / Download Document:* ${directDocUrl}\n` +
-        `🌐 *Client Portal:* ${window.location.origin}`;
+      toast.loading(`Preparing ${f.fileName} for WhatsApp...`, { id: "hub-wa-share" });
+      const res = await api.get(`/Admin/Files/${f.id}/Download`, {
+        responseType: "blob",
+      });
+      const fileBlob = res.data;
+      const contentType = res.headers["content-type"] || f.fileType || fileBlob.type || "application/octet-stream";
+      const resolvedName = extractFileNameFromHeaders(res.headers, f.fileName);
+      toast.dismiss("hub-wa-share");
 
       await shareViaWhatsApp({
-        fileName: f.fileName,
-        fileMimeType: f.fileType || "application/octet-stream",
+        fileBlob,
+        fileName: resolvedName,
+        fileMimeType: contentType,
         phone: phoneClean,
-        title: `Document: ${f.fileName}`,
-        message: text,
-        directUrl: directDocUrl,
+        title: resolvedName,
       });
     } catch (e) {
-      toast.error("Error launching WhatsApp share");
+      toast.dismiss("hub-wa-share");
+      toast.error("Failed to prepare file for WhatsApp");
+    }
+  };
+
+  const handleDefaultEmailShare = async (f) => {
+    if (!f) return;
+    try {
+      toast.loading(`Preparing ${f.fileName} for Email...`, { id: "hub-email-share" });
+      const res = await api.get(`/Admin/Files/${f.id}/Download`, {
+        responseType: "blob",
+      });
+      const fileBlob = res.data;
+      const contentType = res.headers["content-type"] || f.fileType || fileBlob.type || "application/octet-stream";
+      const resolvedName = extractFileNameFromHeaders(res.headers, f.fileName);
+      toast.dismiss("hub-email-share");
+
+      await shareViaEmail({
+        fileBlob,
+        fileName: resolvedName,
+        fileMimeType: contentType,
+        email: shareEmail || f.client?.email || "",
+        title: resolvedName,
+      });
+    } catch (e) {
+      toast.dismiss("hub-email-share");
+      toast.error("Failed to prepare file for Email");
     }
   };
 
@@ -3317,7 +3340,7 @@ export default function FileManagementPage() {
                       WhatsApp Direct Share
                     </strong>
                     <span style={{ fontSize: "12px", color: "#15803d" }}>
-                      Send document attachment link directly via WhatsApp message.
+                      Attach document file directly in WhatsApp chat without download links.
                     </span>
                   </div>
                 </div>
@@ -3340,11 +3363,69 @@ export default function FileManagementPage() {
                     boxShadow: "0 2px 10px rgba(34,197,94,0.3)"
                   }}
                 >
-                  <FaWhatsapp size={16} /> Share on WhatsApp
+                  <FaWhatsapp size={16} /> Attach in WhatsApp
                 </button>
               </div>
 
-              {/* Option 2: Automated Email Service */}
+              {/* Option 2: Default Email Client (Direct File Attachment) */}
+              <div style={{
+                background: "#eff6ff",
+                border: "1.5px solid #bfdbfe",
+                borderRadius: "14px",
+                padding: "16px 18px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "10px",
+                    background: "#2563eb",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 8px rgba(37,99,235,0.3)"
+                  }}>
+                    <FaEnvelope size={20} />
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: "15px", color: "#1e40af", display: "block" }}>
+                      Default Email Client
+                    </strong>
+                    <span style={{ fontSize: "12px", color: "#1d4ed8" }}>
+                      Attach document file directly in your system email client (Outlook, Mail, Gmail).
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDefaultEmailShare(sharingFile)}
+                  style={{
+                    padding: "10px 18px",
+                    background: "#2563eb",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontWeight: "700",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    boxShadow: "0 2px 10px rgba(37,99,235,0.3)"
+                  }}
+                >
+                  <FaEnvelope size={15} /> Attach in Email App
+                </button>
+              </div>
+
+              {/* Option 3: Automated Email Service */}
               <div style={{
                 background: "#f8fafc",
                 border: "1.5px solid #e2e8f0",

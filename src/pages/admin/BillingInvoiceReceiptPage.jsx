@@ -42,6 +42,7 @@ import {
   shareViaWhatsApp,
   shareViaEmail,
   generateVectorPdfBlob,
+  downloadVectorPdf,
   downloadBlob,
 } from "../../utils/whatsappShareHelper";
 import { buildDocPrintHtml } from "../../utils/billingPrintTemplate";
@@ -1319,16 +1320,14 @@ export default function BillingInvoiceReceiptPage() {
 
     try {
       toast.loading("Generating vector PDF...", { id: "pdf-download" });
-      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
-      downloadBlob(pdfBlob, `${docTitle}.pdf`);
+      await downloadVectorPdf(docHtml, isReceipt, docTitle);
 
       toast.dismiss("pdf-download");
       toast.success(`Downloaded ${docTitle}.pdf successfully!`);
     } catch (err) {
       console.error("PDF generation error:", err);
       toast.dismiss("pdf-download");
-      toast.error("Falling back to direct print dialog...");
-      handlePrintDocument(customDoc);
+      toast.error("Failed to generate PDF. Please try Print Document if needed.");
     }
   };
 
@@ -1394,7 +1393,7 @@ export default function BillingInvoiceReceiptPage() {
     const { isReceipt, docNo, docTitle, docHtml, clientMobile } = getDocPayload(customDoc);
     toast.loading("Preparing PDF for WhatsApp...", { id: "wa-share" });
     try {
-      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      const { blob: pdfBlob } = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
       toast.dismiss("wa-share");
 
       await shareViaWhatsApp({
@@ -1415,7 +1414,7 @@ export default function BillingInvoiceReceiptPage() {
     const { isReceipt, docNo, docTitle, docHtml, clientEmail } = getDocPayload(customDoc);
     toast.loading("Preparing PDF for Email...", { id: "email-share" });
     try {
-      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      const { blob: pdfBlob } = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
       toast.dismiss("email-share");
 
       await shareViaEmail({

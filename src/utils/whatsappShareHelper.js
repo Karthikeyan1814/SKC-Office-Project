@@ -1,14 +1,15 @@
 import toast from "react-hot-toast";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import { triggerBrowserDownload } from "./fileDownloader";
 
 /**
  * Universal High-Resolution Vector PDF Generator
- * Uses html2canvas + jsPDF directly to guarantee non-blank, pixel-perfect, crisp PDF generation.
+ * Renders HTML into a real application/pdf Blob and jsPDF instance with crisp fonts, tables, stamps, and layout.
+ * Completely off-screen and invisible to the user (opacity 0.001, z-index -999999) to eliminate any visual flashing.
  */
 export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle = "Document") {
-  // Create an on-screen fixed render container at top level (zIndex: 9999999)
-  // so html2canvas renders the full document without negative coordinate or clipping issues.
+  // Mount completely off-screen and invisible to the user
   const mount = document.createElement("div");
   mount.id = "skc-pdf-vector-render";
   mount.style.position = "fixed";
@@ -19,7 +20,8 @@ export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle
   mount.style.color = "#0f172a";
   mount.style.margin = "0";
   mount.style.padding = "0";
-  mount.style.zIndex = "9999999";
+  mount.style.zIndex = "-999999";
+  mount.style.opacity = "0.001";
   mount.style.pointerEvents = "none";
   mount.innerHTML = docHtml;
 
@@ -31,7 +33,7 @@ export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle
         await document.fonts.ready;
       } catch {}
     }
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const canvas = await html2canvas(mount, {
       scale: 2,
@@ -41,6 +43,14 @@ export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle
       windowWidth: isReceipt ? 1122 : 794,
       scrollX: 0,
       scrollY: 0,
+      onclone: (clonedDoc, clonedElement) => {
+        // Ensure the cloned element inside html2canvas render context is 100% opaque and sharp
+        if (clonedElement) {
+          clonedElement.style.opacity = "1";
+          clonedElement.style.visibility = "visible";
+          clonedElement.style.zIndex = "1";
+        }
+      },
     });
 
     const imgData = canvas.toDataURL("image/jpeg", 0.96);
@@ -72,7 +82,7 @@ export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle
     }
 
     const pdfBlob = pdf.output("blob");
-    return pdfBlob;
+    return { blob: pdfBlob, pdf };
   } finally {
     if (document.body.contains(mount)) {
       document.body.removeChild(mount);
@@ -81,17 +91,24 @@ export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle
 }
 
 /**
- * Universal browser file downloader
+ * Universal High-Resolution Vector PDF Downloader
+ * Executes native triggerBrowserDownload so the PDF downloads instantly in any browser without popup blocking.
+ */
+export async function downloadVectorPdf(docHtml, isReceipt = false, docTitle = "Document") {
+  const { blob } = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+  const cleanTitle = (docTitle || "Document").trim().replace(/[/\\?%*:|"<>]/g, "-");
+  const fileName = cleanTitle.toLowerCase().endsWith(".pdf") ? cleanTitle : `${cleanTitle}.pdf`;
+
+  triggerBrowserDownload(blob, fileName, "application/pdf");
+  return blob;
+}
+
+/**
+ * Universal browser file downloader using verified triggerBrowserDownload
  */
 export function downloadBlob(blob, fileName = "Document.pdf") {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  if (typeof window === "undefined" || !blob) return;
+  triggerBrowserDownload(blob, fileName, blob.type || "application/octet-stream");
 }
 
 /**
@@ -143,21 +160,14 @@ export async function shareViaWhatsApp({
     downloadBlob(fileBlob, baseFileName);
   }
 
-  // Format message only if explicitly passed (e.g. FileManagement link share)
-  let fullMessage = message || "";
-  if (directUrl && fullMessage && !fullMessage.includes(directUrl)) {
-    fullMessage += `\n\n🔗 *Direct Access / Verification Link:* ${directUrl}`;
-  }
-
-  const queryPart = fullMessage ? `?text=${encodeURIComponent(fullMessage)}` : "";
   const waUrl = phoneClean
-    ? `https://wa.me/91${phoneClean}${queryPart}`
-    : `https://api.whatsapp.com/send${queryPart}`;
+    ? `https://wa.me/91${phoneClean}`
+    : `https://api.whatsapp.com/send`;
 
   window.open(waUrl, "_blank");
 
   if (fileBlob) {
-    toast.success("PDF downloaded! In WhatsApp, click 📎 to attach.", { duration: 5000 });
+    toast.success("File downloaded! In WhatsApp, click 📎 to attach.", { duration: 5000 });
   } else {
     toast.success("Opening WhatsApp chat...", { duration: 4000 });
   }
@@ -208,7 +218,7 @@ export async function shareViaEmail({
   }
 
   // ── LEVEL 2: DESKTOP MAILTO FALLBACK ──
-  // Auto-downloads the PDF file directly and launches default email client via mailto:
+  // Auto-downloads the file directly and launches default email client via mailto:
   if (fileBlob) {
     downloadBlob(fileBlob, baseFileName);
   }
@@ -220,7 +230,7 @@ export async function shareViaEmail({
   window.location.href = mailtoUrl;
 
   if (fileBlob) {
-    toast.success("PDF downloaded! Click 'Attach file' in your email client.", { duration: 5000 });
+    toast.success("File downloaded! Click 'Attach file' in your email client.", { duration: 5000 });
   }
   return true;
 }
