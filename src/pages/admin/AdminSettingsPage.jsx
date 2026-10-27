@@ -1092,8 +1092,8 @@ export default function AdminSettingsPage() {
                     className={`settings-radio-option ${folderModal.isCommon ? "selected" : ""}`}
                     onClick={() => setFolderModal((prev) => ({ ...prev, isCommon: true, clientId: "" }))}
                   >
-                    <span className="radio-opt-title">🌐 Common to All</span>
-                    <span className="radio-opt-sub">Visible to all registered clients and staff</span>
+                    <span className="radio-opt-title">🏢 Admin &amp; Staff (⭐ Default)</span>
+                    <span className="radio-opt-sub">Only visible to Admin &amp; Staff. Hidden from clients</span>
                   </div>
 
                   <div

@@ -317,8 +317,15 @@ export default function FileManagementPage() {
   // Available Folders for Upload (Common + allocated to selectedClient, sorted client-specific first)
   const availableUploadFolders = useMemo(() => {
     if (!folders || folders.length === 0) return [];
+    const catFolders = uploadCategory === "ALL"
+      ? folders
+      : folders.filter((f) => f.category && f.category.toUpperCase() === uploadCategory.toUpperCase());
+
+    if (targetAudience === "COMMON") {
+      return catFolders.filter((f) => f.isCommon);
+    }
     const selId = selectedClient ? String(selectedClient.id || selectedClient) : null;
-    const clientMatching = folders.filter((f) => {
+    const clientMatching = catFolders.filter((f) => {
       if (f.isCommon) return true;
       if (selId) {
         const fClientId = f.client?.id ?? f.clientId;
@@ -333,22 +340,21 @@ export default function FileManagementPage() {
       if (a.isCommon && !b.isCommon) return 1;
       return (a.folderName || "").localeCompare(b.folderName || "");
     });
-  }, [folders, selectedClient]);
+  }, [folders, selectedClient, targetAudience, uploadCategory]);
 
   // Fetch all clients when upload modal opens
   const openUploadModal = async () => {
     setShowUploadModal(true);
     const defaultCat = activeCategory !== "ALL" ? activeCategory : "GST";
     setUploadCategory(defaultCat);
-    if (defaultCat === "IMPORTANT") {
-      setTargetAudience("PERSONAL");
-    }
+    setTargetAudience("COMMON");
     setSelectedClient(null);
     setClientSearchQuery("");
     setUploadFile(null);
     setUploadFolderId("");
     setUploadFolderName("");
     setShowInlineCreateFolder(false);
+    setInlineIsCommon(true);
     try {
       const res = await api.get("/Admin/FileManagement/Clients");
       setAvailableClients(res.data || []);
@@ -411,7 +417,8 @@ export default function FileManagementPage() {
   // Handle direct AWS S3 Upload
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
-    if (uploadCategory !== "IMPORTANT" && !selectedClient) {
+    const needsClient = targetAudience === "CLIENT";
+    if (needsClient && !selectedClient) {
       toast.error("Please select a client from the list");
       return;
     }
@@ -437,7 +444,9 @@ export default function FileManagementPage() {
         formData.append("customFileName", customUploadFileName.trim());
       }
 
-      if (uploadCategory === "IMPORTANT") {
+      if (targetAudience === "COMMON") {
+        formData.append("targetAudience", "COMMON");
+      } else if (targetAudience === "PERSONAL" || targetAudience === "STAFF") {
         formData.append("targetAudience", targetAudience);
       } else {
         formData.append("clientId", selectedClient.id);
@@ -475,8 +484,12 @@ export default function FileManagementPage() {
       if (res.data?.status === "success") {
         setUploadPhase("SUCCESS");
         setUploadProgress(100);
-        const dest = uploadCategory === "IMPORTANT"
-          ? (targetAudience === "STAFF" ? "Staff Workspace" : "Personal Storage")
+        const dest = targetAudience === "COMMON"
+          ? "Admin & Staff Common Space"
+          : targetAudience === "PERSONAL"
+          ? "Personal Storage"
+          : targetAudience === "STAFF"
+          ? "Staff Workspace"
           : selectedClient?.name || "Client Portal";
         toast.success(`File successfully uploaded to ${dest}!`);
         setTimeout(() => {
@@ -1705,78 +1718,141 @@ export default function FileManagementPage() {
                 </div>
               </div>
 
-              {/* Conditional Client Selector OR Important File Internal Target */}
-              {uploadCategory === "IMPORTANT" ? (
-                <div style={{
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  borderRadius: "10px",
-                  padding: "16px",
-                  marginBottom: "18px"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "600", color: "#166534", marginBottom: "6px" }}>
-                    <span>🔒 Personal / Office Storage Target</span>
-                  </div>
-                  <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#15803d" }}>
-                    Important files are reserved for personal administrative or internal staff use. Client selection is not involved.
-                  </p>
-                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                    <label style={{
-                      flex: 1,
-                      minWidth: "180px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      background: targetAudience === "PERSONAL" ? "#dcfce7" : "#fff",
-                      border: targetAudience === "PERSONAL" ? "2px solid #16a34a" : "1px solid #d1d5db",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: targetAudience === "PERSONAL" ? "700" : "500",
-                      color: "#14532d"
-                    }}>
-                      <input
-                        type="radio"
-                        name="targetAudience"
-                        value="PERSONAL"
-                        checked={targetAudience === "PERSONAL"}
-                        onChange={() => setTargetAudience("PERSONAL")}
-                      />
-                      🔒 Personal (Only Me)
-                    </label>
+              {/* Destination & Access Scope Selector (Default: Admin & Staff Common Space) */}
+              <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "10px", padding: "14px", marginBottom: "16px" }}>
+                <label style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b", display: "block", marginBottom: "8px" }}>
+                  Destination &amp; Access Scope *
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: uploadCategory === "IMPORTANT" ? "1fr 1fr 1fr 1fr" : "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                  <label style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    background: targetAudience === "COMMON" ? "#eff6ff" : "#fff",
+                    border: targetAudience === "COMMON" ? "2px solid #2563eb" : "1px solid #d1d5db",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    fontWeight: targetAudience === "COMMON" ? "700" : "500",
+                    color: targetAudience === "COMMON" ? "#1d4ed8" : "#374151"
+                  }}>
+                    <input
+                      type="radio"
+                      name="adminTargetScope"
+                      value="COMMON"
+                      checked={targetAudience === "COMMON"}
+                      onChange={() => {
+                        setTargetAudience("COMMON");
+                        setSelectedClient(null);
+                      }}
+                    />
+                    <span>🏢 Admin &amp; Staff (⭐ Default)</span>
+                  </label>
 
-                    <label style={{
-                      flex: 1,
-                      minWidth: "180px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      background: targetAudience === "STAFF" ? "#ede9fe" : "#fff",
-                      border: targetAudience === "STAFF" ? "2px solid #7c3aed" : "1px solid #d1d5db",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: targetAudience === "STAFF" ? "700" : "500",
-                      color: "#5b21b6"
-                    }}>
-                      <input
-                        type="radio"
-                        name="targetAudience"
-                        value="STAFF"
-                        checked={targetAudience === "STAFF"}
-                        onChange={() => setTargetAudience("STAFF")}
-                      />
-                      👥 Send to Staff Members
-                    </label>
-                  </div>
+                  <label style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    background: targetAudience === "CLIENT" ? "#f5f3ff" : "#fff",
+                    border: targetAudience === "CLIENT" ? "2px solid #7c3aed" : "1px solid #d1d5db",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    fontWeight: targetAudience === "CLIENT" ? "700" : "500",
+                    color: targetAudience === "CLIENT" ? "#6d28d9" : "#374151"
+                  }}>
+                    <input
+                      type="radio"
+                      name="adminTargetScope"
+                      value="CLIENT"
+                      checked={targetAudience === "CLIENT"}
+                      onChange={() => setTargetAudience("CLIENT")}
+                    />
+                    <span>👤 Specific Client</span>
+                  </label>
+
+                  {uploadCategory === "IMPORTANT" && (
+                    <>
+                      <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "9px 12px",
+                        borderRadius: "8px",
+                        background: targetAudience === "PERSONAL" ? "#f0fdf4" : "#fff",
+                        border: targetAudience === "PERSONAL" ? "2px solid #16a34a" : "1px solid #d1d5db",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: targetAudience === "PERSONAL" ? "700" : "500",
+                        color: targetAudience === "PERSONAL" ? "#15803d" : "#374151"
+                      }}>
+                        <input
+                          type="radio"
+                          name="adminTargetScope"
+                          value="PERSONAL"
+                          checked={targetAudience === "PERSONAL"}
+                          onChange={() => {
+                            setTargetAudience("PERSONAL");
+                            setSelectedClient(null);
+                          }}
+                        />
+                        <span>🔒 Personal (Only Me)</span>
+                      </label>
+
+                      <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "9px 12px",
+                        borderRadius: "8px",
+                        background: targetAudience === "STAFF" ? "#fef3c7" : "#fff",
+                        border: targetAudience === "STAFF" ? "2px solid #d97706" : "1px solid #d1d5db",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: targetAudience === "STAFF" ? "700" : "500",
+                        color: targetAudience === "STAFF" ? "#b45309" : "#374151"
+                      }}>
+                        <input
+                          type="radio"
+                          name="adminTargetScope"
+                          value="STAFF"
+                          checked={targetAudience === "STAFF"}
+                          onChange={() => {
+                            setTargetAudience("STAFF");
+                            setSelectedClient(null);
+                          }}
+                        />
+                        <span>👥 Staff Workspace</span>
+                      </label>
+                    </>
+                  )}
                 </div>
-              ) : (
+
+                {targetAudience === "COMMON" && (
+                  <div style={{ fontSize: "12px", color: "#1e40af", background: "#dbeafe", padding: "8px 12px", borderRadius: "6px" }}>
+                    ⭐ <strong>Admin &amp; Staff Common Space:</strong> Stored in common office workspace shared with Admin and Staff. No client selection required. Strictly hidden from client portals.
+                  </div>
+                )}
+                {targetAudience === "PERSONAL" && (
+                  <div style={{ fontSize: "12px", color: "#166534", background: "#dcfce7", padding: "8px 12px", borderRadius: "6px" }}>
+                    🔒 <strong>Personal Storage:</strong> Saved to your private admin repository. Visible only to you.
+                  </div>
+                )}
+                {targetAudience === "STAFF" && (
+                  <div style={{ fontSize: "12px", color: "#92400e", background: "#fef3c7", padding: "8px 12px", borderRadius: "6px" }}>
+                    👥 <strong>Staff Workspace:</strong> Available to all staff members.
+                  </div>
+                )}
+              </div>
+
+              {/* Target Client Selector (When Specific Client is chosen) */}
+              {targetAudience === "CLIENT" && (
                 <div style={{ marginBottom: "20px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                     <label style={{ fontSize: "14px", fontWeight: "600", color: "#374151" }}>
-                      Select Target Client
+                      Select Target Client *
                     </label>
                     {selectedClient && (
                       <button
@@ -1989,18 +2065,6 @@ export default function FileManagementPage() {
                     </div>
 
                     <div style={{ display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap", padding: "8px 12px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                      {selectedClient && (
-                        <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: !inlineIsCommon ? "#4338ca" : "#475569", cursor: "pointer", fontWeight: !inlineIsCommon ? "700" : "500" }}>
-                          <input
-                            type="radio"
-                            name="inlineCommon"
-                            checked={!inlineIsCommon}
-                            onChange={() => setInlineIsCommon(false)}
-                            style={{ accentColor: "#4f46e5" }}
-                          />
-                          <span>🔒 Specific to {selectedClient.name} (Only this client)</span>
-                        </label>
-                      )}
                       <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: inlineIsCommon ? "#047857" : "#475569", cursor: "pointer", fontWeight: inlineIsCommon ? "700" : "500" }}>
                         <input
                           type="radio"
@@ -2009,7 +2073,17 @@ export default function FileManagementPage() {
                           onChange={() => setInlineIsCommon(true)}
                           style={{ accentColor: "#059669" }}
                         />
-                        <span>🌐 Common Folder (Visible to All Clients)</span>
+                        <span>🏢 Admin &amp; Staff Common Space (⭐ Default - Visible to Admin &amp; Staff Only)</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: !inlineIsCommon ? "#4338ca" : "#475569", cursor: "pointer", fontWeight: !inlineIsCommon ? "700" : "500" }}>
+                        <input
+                          type="radio"
+                          name="inlineCommon"
+                          checked={!inlineIsCommon}
+                          onChange={() => setInlineIsCommon(false)}
+                          style={{ accentColor: "#4f46e5" }}
+                        />
+                        <span>🔒 Specific to {selectedClient ? selectedClient.name : "Target Client"}</span>
                       </label>
                     </div>
 
@@ -2604,10 +2678,10 @@ export default function FileManagementPage() {
                 </span>
               </div>
 
-              {/* 4. Folder Allocation (Common to all clients OR specific client) */}
+              {/* 4. Folder Allocation (Admin & Staff Common Space OR Specific Client) */}
               <div>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#374151", marginBottom: "8px" }}>
-                  Folder Access &amp; Allocation
+                  Folder Access &amp; Allocation Scope *
                 </label>
                 <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "10px", flexWrap: "wrap" }}>
                   <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: folderModal.isCommon ? "#047857" : "#374151", cursor: "pointer", fontWeight: folderModal.isCommon ? "700" : "500" }}>
@@ -2618,7 +2692,7 @@ export default function FileManagementPage() {
                       onChange={() => setFolderModal((prev) => ({ ...prev, isCommon: true, clientId: "" }))}
                       style={{ accentColor: "#059669" }}
                     />
-                    <span>🌐 Common Folder (Visible to All Clients)</span>
+                    <span>🏢 Admin &amp; Staff Common Space (⭐ Default - Only Visible to Admin &amp; Staff)</span>
                   </label>
                   <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: !folderModal.isCommon ? "#4338ca" : "#374151", cursor: "pointer", fontWeight: !folderModal.isCommon ? "700" : "500" }}>
                     <input
