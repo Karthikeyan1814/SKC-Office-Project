@@ -28,6 +28,8 @@ import {
   HiOutlineBellAlert,
   HiOutlinePlay,
   HiOutlineDevicePhoneMobile,
+  HiOutlineArrowDownTray,
+  HiOutlineBookOpen,
 } from "react-icons/hi2";
 import {
   isSoundEnabled,
@@ -563,6 +565,30 @@ export default function AdminSettingsPage() {
               <Link to="/Admin/HomePageCMS" className="btn-primary-action" style={{ textDecoration: "none", display: "inline-flex", background: "linear-gradient(135deg, #d97706, #b45309)" }}>
                 Launch Home Page CMS <HiOutlineArrowTopRightOnSquare size={16} />
               </Link>
+            </div>
+
+            {/* Official User Manual & Operational SOP Card */}
+            <div style={{ border: "1.5px solid #bbf7d0", borderRadius: "16px", padding: "24px", background: "#f0fdf4" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+                <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <HiOutlineBookOpen size={22} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#14532d" }}>Portal User Manual &amp; SOP</h4>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "#15803d" }}>Complete 8-Page Official PDF Guide</p>
+                </div>
+              </div>
+              <p style={{ fontSize: "13px", color: "#166534", lineHeight: 1.5, marginBottom: "20px" }}>
+                Comprehensive user manual clarifying document categories, role permission matrix, step-by-step client onboarding, vector invoicing, and security policies to hand over to clients or staff.
+              </p>
+              <a
+                href="/docs/SKC_Office_Portal_User_Manual.pdf"
+                download="SKC_Office_Portal_User_Manual.pdf"
+                className="btn-primary-action"
+                style={{ textDecoration: "none", display: "inline-flex", background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#ffffff" }}
+              >
+                Download User Manual (PDF) <HiOutlineArrowDownTray size={16} style={{ marginLeft: "6px" }} />
+              </a>
             </div>
           </div>
         </div>

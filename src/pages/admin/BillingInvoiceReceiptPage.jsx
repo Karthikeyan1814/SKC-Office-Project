@@ -1766,6 +1766,25 @@ export default function BillingInvoiceReceiptPage() {
               <HiOutlineCog6Tooth size={16} />
               Seal & Signature Settings
             </button>
+
+            <a
+              href="/docs/SKC_Office_Portal_User_Manual.pdf"
+              download="SKC_Office_Portal_User_Manual.pdf"
+              className="btn-billing-action"
+              style={{
+                textDecoration: "none",
+                background: "#f0fdf4",
+                color: "#166534",
+                border: "1px solid #bbf7d0",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+              title="Download Complete System User Manual & SOP (PDF) for Clients & Staff"
+            >
+              <HiOutlineArrowDownTray size={16} />
+              User Manual (PDF)
+            </a>
           </div>
         </div>
 
