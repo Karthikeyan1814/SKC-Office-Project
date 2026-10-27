@@ -389,8 +389,30 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
 
+.client-appt-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  width: 100%;
+}
+
+.client-appt-table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+
+.client-appt-table-wrap::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.client-appt-table-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
 .client-appt-table {
   width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -604,13 +626,21 @@
   }
 
   .client-appt-table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y;
+    width: 100% !important;
+    display: block !important;
   }
 
   .client-appt-table {
-    min-width: 540px;
+    min-width: 720px !important;
+    width: 100% !important;
+  }
+
+  .client-appt-table th,
+  .client-appt-table td {
+    white-space: nowrap;
   }
 
   .client-req-card {

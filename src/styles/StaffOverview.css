@@ -426,6 +426,7 @@
 
 .staff-upcoming-table {
   width: 100%;
+  min-width: 780px;
   border-collapse: collapse;
 }
 
@@ -503,13 +504,20 @@
 
   .staff-upcoming-card {
     padding: 16px 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y;
     border-radius: 12px;
   }
 
   .staff-upcoming-table {
-    min-width: 500px;
+    min-width: 780px !important;
+    width: 100% !important;
+  }
+
+  .staff-upcoming-table th,
+  .staff-upcoming-table td {
+    white-space: nowrap;
   }
 }
 

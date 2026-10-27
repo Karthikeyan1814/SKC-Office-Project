@@ -235,12 +235,35 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  width: 100%;
+  max-width: 100%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.admin-appt-table-card::-webkit-scrollbar {
+  height: 6px;
+}
+
+.admin-appt-table-card::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.admin-appt-table-card::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.admin-appt-table-card::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .admin-appt-table {
   width: 100%;
+  min-width: 820px;
   border-collapse: collapse;
   font-size: 13px;
   text-align: left;
@@ -589,15 +612,26 @@
     gap: 10px !important;
   }
 
-  .appt-table-container {
+  .appt-table-container,
+  .admin-appt-table-card {
     overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y;
+    width: 100% !important;
+    max-width: 100% !important;
     border-radius: 10px;
+    display: block !important;
   }
 
+  .admin-appt-table,
   .appt-table-container table {
-    min-width: 550px;
+    min-width: 820px !important;
+    width: 100% !important;
+  }
+
+  .admin-appt-table th,
+  .admin-appt-table td {
+    white-space: nowrap;
   }
 
   .appt-modal-box {

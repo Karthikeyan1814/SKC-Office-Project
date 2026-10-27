@@ -287,7 +287,7 @@ export default function StaffAppointments() {
             <p style={{ margin: 0, color: "#64748b", fontSize: "13px" }}>No consultations found.</p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="appt-table-container" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
             <table className="admin-appt-table">
               <thead>
                 <tr>

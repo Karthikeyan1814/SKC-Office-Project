@@ -487,7 +487,7 @@ export default function AdminAppointmentsPage() {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="appt-table-container" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
             <table className="admin-appt-table">
               <thead>
                 <tr>

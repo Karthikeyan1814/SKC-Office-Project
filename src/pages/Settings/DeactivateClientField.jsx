@@ -230,10 +230,11 @@ export default function DeactivateClientField({handleOpenDeactiavte}) {
             ) : fields.length === 0 ? (
                 <p>No fields found for this version.</p>
             ) : (
-                <div style={{ overflowX: "auto" }}>
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
                     <table
                         style={{
                             width: "100%",
+                            minWidth: "620px",
                             borderCollapse: "collapse"
                         }}
                     >

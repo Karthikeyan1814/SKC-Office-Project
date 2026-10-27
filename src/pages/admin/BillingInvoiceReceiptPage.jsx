@@ -1809,7 +1809,7 @@ export default function BillingInvoiceReceiptPage() {
           </div>
 
           {/* Table of Filed Files */}
-          <div style={{ overflowX: "auto" }}>
+          <div className="items-table-wrapper" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
             <table className="items-table">
               <thead>
                 <tr>

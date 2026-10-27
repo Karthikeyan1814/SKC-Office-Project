@@ -1153,8 +1153,8 @@ export default function ClientMembership() {
                 {files.length === 0 ? (
                   <p style={{ color: "#9ca3af", textAlign: "center", padding: "40px" }}>No documents in your vault yet.</p>
                 ) : (
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
+                    <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", fontSize: "14px" }}>
                       <thead>
                         <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left", color: "#4b5563" }}>
                           <th style={{ padding: "10px" }}>Document Name</th>

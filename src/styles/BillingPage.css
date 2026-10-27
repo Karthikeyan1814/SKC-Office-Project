@@ -398,13 +398,31 @@
 /* Line Items Table */
 .items-table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   margin-bottom: 14px;
+  width: 100%;
+}
+
+.items-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.items-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.items-table-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .items-table {
   width: 100%;
+  min-width: 780px;
   border-collapse: collapse;
   font-size: 13px;
   text-align: left;
@@ -1684,16 +1702,33 @@
     align-self: flex-end;
   }
 
-  .billing-table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
+  .billing-table-wrapper,
+  .items-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y;
+    width: 100% !important;
+    max-width: 100% !important;
     margin-bottom: 14px;
     border-radius: 8px;
+    display: block !important;
   }
 
   .billing-table {
-    min-width: 600px;
+    min-width: 680px !important;
+    width: 100% !important;
+  }
+
+  .items-table {
+    min-width: 780px !important;
+    width: 100% !important;
+  }
+
+  .billing-table th,
+  .billing-table td,
+  .items-table th,
+  .items-table td {
+    white-space: nowrap;
   }
 
   .doc-preview-modal-box {

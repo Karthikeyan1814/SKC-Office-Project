@@ -398,10 +398,28 @@
 
 .fields-table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  width: 100%;
+}
+
+.fields-table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+
+.fields-table-wrap::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.fields-table-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .fields-table {
   width: 100%;
+  min-width: 680px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13.5px;
@@ -737,4 +755,24 @@
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 6px;
+}
+
+@media screen and (max-width: 768px) {
+  .fields-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  .fields-table {
+    min-width: 680px !important;
+    width: 100% !important;
+  }
+
+  .fields-table th,
+  .fields-table td {
+    white-space: nowrap;
+  }
 }

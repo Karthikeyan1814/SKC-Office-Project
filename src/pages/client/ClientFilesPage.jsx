@@ -636,8 +636,8 @@ export default function ClientFilesPage() {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
+            <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left", color: "#4b5563", background: "#f9fafb" }}>
                   <th style={{ padding: "12px 14px", fontWeight: "700" }}>Document Name</th>

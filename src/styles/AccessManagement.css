@@ -266,13 +266,36 @@
 .am-table-wrap {
   background: #ffffff;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
+.am-table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+
+.am-table-wrap::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.am-table-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.am-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 .am-table {
   width: 100%;
+  min-width: 780px;
   border-collapse: collapse;
   font-size: 13px;
   text-align: left;
@@ -617,15 +640,43 @@
     gap: 12px;
   }
 
-  .am-table-container {
+  .am-tabs-bar {
+    flex-wrap: nowrap !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
-    width: 100%;
-    border-radius: 10px;
+    padding-bottom: 6px;
+    gap: 8px;
+    scrollbar-width: none;
   }
 
-  .am-table-container table {
-    min-width: 550px;
+  .am-tabs-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .am-tab-btn {
+    white-space: nowrap !important;
+    flex-shrink: 0;
+  }
+
+  .am-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 10px;
+    display: block !important;
+  }
+
+  .am-table-wrap .am-table,
+  .am-table {
+    min-width: 780px !important;
+    width: 100% !important;
+  }
+
+  .am-table th,
+  .am-table td {
+    white-space: nowrap;
   }
 
   .am-modal-card {

@@ -318,7 +318,7 @@ export default function ClientAppointments() {
             </button>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="client-appt-table-wrap" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
             <table className="client-appt-table">
               <thead>
                 <tr>

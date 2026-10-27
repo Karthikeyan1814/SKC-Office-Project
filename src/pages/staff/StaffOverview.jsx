@@ -897,7 +897,7 @@ export default function StaffOverview() {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
             <table className="staff-upcoming-table">
               <thead>
                 <tr>

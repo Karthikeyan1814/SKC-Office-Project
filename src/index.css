@@ -185,13 +185,39 @@ img, svg, video, canvas {
     box-sizing: border-box;
   }
 
-  /* Smooth mobile touch scrolling */
+  /* Smooth mobile touch scrolling for all tables across the entire application */
   [class*="-table-wrapper"],
   [class*="-table-container"],
-  [class*="-table-wrap"] {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
+  [class*="-table-wrap"],
+  [class*="-table-card"],
+  .items-table-wrapper,
+  .am-table-wrap,
+  .appt-table-container,
+  .client-appt-table-wrap,
+  .fields-table-wrap,
+  div[style*="overflowX"],
+  div[style*="overflow-x"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
+  [class*="-table-wrapper"]::-webkit-scrollbar,
+  [class*="-table-container"]::-webkit-scrollbar,
+  [class*="-table-wrap"]::-webkit-scrollbar,
+  [class*="-table-card"]::-webkit-scrollbar {
+    height: 5px;
+  }
+
+  [class*="-table-wrapper"]::-webkit-scrollbar-thumb,
+  [class*="-table-container"]::-webkit-scrollbar-thumb,
+  [class*="-table-wrap"]::-webkit-scrollbar-thumb,
+  [class*="-table-card"]::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
   }
 }
 
