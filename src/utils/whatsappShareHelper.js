@@ -1,69 +1,77 @@
 import toast from "react-hot-toast";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 /**
  * Universal High-Resolution Vector PDF Generator
- * Renders HTML into a real application/pdf Blob with crisp fonts, tables, stamps, and layout.
+ * Uses html2canvas + jsPDF directly to guarantee non-blank, pixel-perfect, crisp PDF generation.
  */
 export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle = "Document") {
-  const html2pdfModule = await import("html2pdf.js");
-  const html2pdf = html2pdfModule.default || html2pdfModule;
-
-  // Dedicated off-screen mount container with full in-flow dimensions
+  // Create an on-screen fixed render container at top level (zIndex: 9999999)
+  // so html2canvas renders the full document without negative coordinate or clipping issues.
   const mount = document.createElement("div");
   mount.id = "skc-pdf-vector-render";
-  mount.style.position = "absolute";
-  mount.style.left = "-99999px";
+  mount.style.position = "fixed";
+  mount.style.left = "0px";
   mount.style.top = "0px";
   mount.style.width = isReceipt ? "1122px" : "794px";
   mount.style.backgroundColor = "#ffffff";
   mount.style.color = "#0f172a";
   mount.style.margin = "0";
   mount.style.padding = "0";
+  mount.style.zIndex = "9999999";
+  mount.style.pointerEvents = "none";
   mount.innerHTML = docHtml;
 
   document.body.appendChild(mount);
 
-  // Wait for fonts and layouts to settle
-  if (document.fonts && document.fonts.ready) {
-    try {
-      await document.fonts.ready;
-    } catch {}
-  }
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  try {
+    if (document.fonts && document.fonts.ready) {
+      try {
+        await document.fonts.ready;
+      } catch {}
+    }
+    await new Promise((resolve) => setTimeout(resolve, 80));
 
-  const opt = {
-    margin: [6, 6, 6, 6],
-    filename: `${docTitle}.pdf`,
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: {
+    const canvas = await html2canvas(mount, {
       scale: 2,
       useCORS: true,
       logging: false,
       backgroundColor: "#ffffff",
       windowWidth: isReceipt ? 1122 : 794,
-    },
-    jsPDF: {
+      scrollX: 0,
+      scrollY: 0,
+    });
+
+    const imgData = canvas.toDataURL("image/jpeg", 0.96);
+    const orientation = isReceipt ? "landscape" : "portrait";
+    const pdf = new jsPDF({
+      orientation,
       unit: "mm",
       format: "a4",
-      orientation: isReceipt ? "landscape" : "portrait",
-    },
-    pagebreak: {
-      mode: ["avoid-all", "css", "legacy"],
-      avoid: [
-        ".doc-summary-split",
-        ".doc-footer-grid",
-        ".doc-terms",
-        ".doc-seal-box",
-        ".doc-signatory",
-        ".doc-payment-status",
-        ".doc-amount-words",
-        "tr",
-      ],
-    },
-  };
+    });
 
-  try {
-    const pdfBlob = await html2pdf().set(opt).from(mount).outputPdf("blob");
+    const pdfPageWidth = pdf.internal.pageSize.getWidth();
+    const pdfPageHeight = pdf.internal.pageSize.getHeight();
+
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const imgHeightInPdf = (canvasHeight * pdfPageWidth) / canvasWidth;
+
+    let heightLeft = imgHeightInPdf;
+    let position = 0;
+
+    pdf.addImage(imgData, "JPEG", 0, position, pdfPageWidth, imgHeightInPdf, undefined, "FAST");
+    heightLeft -= pdfPageHeight;
+
+    while (heightLeft > 2) {
+      position = heightLeft - imgHeightInPdf;
+      pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, position, pdfPageWidth, imgHeightInPdf, undefined, "FAST");
+      heightLeft -= pdfPageHeight;
+    }
+
+    const pdfBlob = pdf.output("blob");
     return pdfBlob;
   } finally {
     if (document.body.contains(mount)) {
@@ -104,19 +112,21 @@ export async function shareViaWhatsApp({
   const baseFileName = fileName ? fileName.trim() : "Document.pdf";
 
   // ── LEVEL 1: NATIVE WEB SHARE API (Mobile & Windows 10/11) ──
-  // Attaches the file directly without captions
-  if (fileBlob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
+  // Attaches the file directly without text captions
+  if (fileBlob && typeof navigator !== "undefined" && typeof navigator.share === "function") {
     try {
       const fileObj = new File([fileBlob], baseFileName, {
         type: fileMimeType || fileBlob.type || "application/pdf",
         lastModified: Date.now(),
       });
 
-      if (navigator.canShare({ files: [fileObj] })) {
-        // Only attach the file without text captions as requested
-        await navigator.share({
-          files: [fileObj],
-        });
+      const shareData = {
+        title: baseFileName,
+        files: [fileObj],
+      };
+
+      if (!navigator.canShare || navigator.canShare(shareData)) {
+        await navigator.share(shareData);
         toast.success("Document attached to WhatsApp!");
         return true;
       }
@@ -172,18 +182,20 @@ export async function shareViaEmail({
 
   // ── LEVEL 1: NATIVE WEB SHARE API (Mobile & Windows 10/11) ──
   // Native share sheet lets user choose default Mail / Outlook / Gmail with file attached directly
-  if (fileBlob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
+  if (fileBlob && typeof navigator !== "undefined" && typeof navigator.share === "function") {
     try {
       const fileObj = new File([fileBlob], baseFileName, {
         type: fileMimeType || fileBlob.type || "application/pdf",
         lastModified: Date.now(),
       });
 
-      if (navigator.canShare({ files: [fileObj] })) {
-        await navigator.share({
-          title: subject,
-          files: [fileObj],
-        });
+      const shareData = {
+        title: subject,
+        files: [fileObj],
+      };
+
+      if (!navigator.canShare || navigator.canShare(shareData)) {
+        await navigator.share(shareData);
         toast.success("Document attached to email!");
         return true;
       }
