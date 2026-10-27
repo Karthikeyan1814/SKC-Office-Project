@@ -135,7 +135,6 @@ export default function FilesLayout({
 
             const uploadUrl = isAdmin ? "/Admin/FileManagement/Upload" : "/Staff/FileManagement/Upload";
             const res = await api.post(uploadUrl, formData, {
-                headers: { "Content-Type": "multipart/form-data" },
                 timeout: 0, // Disable timeout to support large file uploads without premature abort
                 signal: abortController.signal,
                 onUploadProgress: (progressEvent) => {

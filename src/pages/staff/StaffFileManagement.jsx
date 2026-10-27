@@ -431,7 +431,6 @@ export default function StaffFileManagement() {
       }
 
       const res = await api.post("/Staff/FileManagement/Upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
         timeout: 0, // Disable timeout to support large file uploads without premature abort
         signal: abortController.signal,
         onUploadProgress: (progressEvent) => {
