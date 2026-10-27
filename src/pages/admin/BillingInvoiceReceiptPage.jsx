@@ -379,6 +379,111 @@ export default function BillingInvoiceReceiptPage() {
   const [dashFilterTab, setDashFilterTab] = useState("ALL"); // "ALL", "INVOICE", "RECEIPT", "DUE", "ARCHIVED"
   const [dashSearchQuery, setDashSearchQuery] = useState("");
   const [isDebtorModalOpen, setIsDebtorModalOpen] = useState(false);
+  const [previewModalDoc, setPreviewModalDoc] = useState(null);
+  const [allocatedInvoiceDocNumber, setAllocatedInvoiceDocNumber] = useState("");
+
+  // Quick Responses for "Received With Thanks From"
+  const [payerQuickResponses, setPayerQuickResponses] = useState(() => {
+    try {
+      const saved = localStorage.getItem("skc_quick_receipt_payers");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      "The Managing Director",
+      "Managing Partner",
+      "Authorised Signatory",
+      "Finance & Accounts Dept.",
+      "Chief Financial Officer (CFO)",
+    ];
+  });
+  const [newPayerText, setNewPayerText] = useState("");
+  const [isAddingPayer, setIsAddingPayer] = useState(false);
+
+  // Quick Responses for "Being Payment Towards *"
+  const [purposeQuickResponses, setPurposeQuickResponses] = useState(() => {
+    try {
+      const saved = localStorage.getItem("skc_quick_receipt_purposes");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      "Full Settlement of Outstanding Balance",
+      "Part Payment Against Tax Invoice",
+      "Statutory & Tax Audit Professional Fees",
+      "Annual GST Compliance & Filing Services",
+      "Income Tax Return (ITR) Filing & Assessment",
+      "ROC Annual Filing & Corporate Secretarial",
+      "Accounting & Bookkeeping Retainer Services",
+      "Quarterly TDS / TCS Compliance Fees",
+    ];
+  });
+  const [newPurposeText, setNewPurposeText] = useState("");
+  const [isAddingPurpose, setIsAddingPurpose] = useState(false);
+
+  const handleAddPayerResponse = () => {
+    const trimmed = newPayerText.trim();
+    if (!trimmed) return;
+    if (!payerQuickResponses.includes(trimmed)) {
+      const updated = [...payerQuickResponses, trimmed];
+      setPayerQuickResponses(updated);
+      try { localStorage.setItem("skc_quick_receipt_payers", JSON.stringify(updated)); } catch {}
+      toast.success(`Added "${trimmed}" to payer quick responses`);
+    }
+    setNewPayerText("");
+    setIsAddingPayer(false);
+  };
+
+  const handleDeletePayerResponse = (phrase, e) => {
+    if (e) e.stopPropagation();
+    const updated = payerQuickResponses.filter((p) => p !== phrase);
+    setPayerQuickResponses(updated);
+    try { localStorage.setItem("skc_quick_receipt_payers", JSON.stringify(updated)); } catch {}
+    toast.success(`Removed "${phrase}"`);
+  };
+
+  const handleAddPurposeResponse = () => {
+    const trimmed = newPurposeText.trim();
+    if (!trimmed) return;
+    if (!purposeQuickResponses.includes(trimmed)) {
+      const updated = [...purposeQuickResponses, trimmed];
+      setPurposeQuickResponses(updated);
+      try { localStorage.setItem("skc_quick_receipt_purposes", JSON.stringify(updated)); } catch {}
+      toast.success(`Added "${trimmed}" to purpose quick responses`);
+    }
+    setNewPurposeText("");
+    setIsAddingPurpose(false);
+  };
+
+  const handleDeletePurposeResponse = (phrase, e) => {
+    if (e) e.stopPropagation();
+    const updated = purposeQuickResponses.filter((p) => p !== phrase);
+    setPurposeQuickResponses(updated);
+    try { localStorage.setItem("skc_quick_receipt_purposes", JSON.stringify(updated)); } catch {}
+    toast.success(`Removed "${phrase}"`);
+  };
+
+  // Helper to get all receipts linked to an invoice
+  const getReceiptsForInvoice = (inv) => {
+    if (!inv) return [];
+    if (Array.isArray(inv.receiptHistory) && inv.receiptHistory.length > 0) {
+      return inv.receiptHistory;
+    }
+    return savedArchive
+      .filter(
+        (d) =>
+          d.type === "RECEIPT" &&
+          (d.allocatedInvoiceNumber === inv.docNumber ||
+            (d.receiptTowards && d.receiptTowards.includes(inv.docNumber)))
+      )
+      .map((r) => ({
+        receiptNumber: r.docNumber,
+        receiptId: r.id,
+        date: r.date,
+        time: r.time,
+        amount: Number(r.paidAmount || r.totalAmount) || 0,
+        receiptTowards: r.receiptTowards,
+        doc: r,
+      }));
+  };
 
   // Load archive from backend and merge with local store
   const syncArchiveWithBackend = async () => {
@@ -574,9 +679,14 @@ export default function BillingInvoiceReceiptPage() {
       setTotalOutstanding(totalDue);
 
       if (mode === "RECEIPT") {
-        if (totalDue > 0) {
-          setAmountPaid(totalDue);
-          setReceiptTowards(`Settlement of Previous Outstanding (Inv: ${unpaidList.map((u) => u.docNumber).join(", ")})`);
+        if (unpaidList.length > 0) {
+          const latestInv = unpaidList[0];
+          setAllocatedInvoiceDocNumber(latestInv.docNumber);
+          setAmountPaid(Number(latestInv.remainingBalance) || 0);
+          setReceiptTowards(`Settlement for Tax Invoice ${latestInv.docNumber}`);
+        } else {
+          setAllocatedInvoiceDocNumber("");
+          setAmountPaid(totalDue > 0 ? totalDue : 0);
         }
       } else {
         setAmountPaid(0);
@@ -966,6 +1076,7 @@ export default function BillingInvoiceReceiptPage() {
       id: Date.now(),
       type: mode,
       docNumber: mode === "INVOICE" ? invoiceNumber : receiptNumber,
+      allocatedInvoiceNumber: mode === "RECEIPT" ? (allocatedInvoiceDocNumber || "") : "",
       clientName: client.name,
       clientLegalName: client.contactPerson || client.name,
       clientMobile: client.mobile,
@@ -1028,6 +1139,55 @@ export default function BillingInvoiceReceiptPage() {
       } else {
         const nextSeq = (parseInt(receiptNumber.split("-").pop(), 10) || 2080) + 1;
         localStorage.setItem("skc_rcp_last_seq", String(nextSeq));
+      }
+    }
+
+    // If filing a RECEIPT allocated to an invoice, automatically update invoice balance!
+    if (mode === "RECEIPT" && allocatedInvoiceDocNumber) {
+      const targetInvIndex = updated.findIndex(
+        (d) => d.type === "INVOICE" && d.docNumber === allocatedInvoiceDocNumber
+      );
+      if (targetInvIndex >= 0) {
+        const targetInv = updated[targetInvIndex];
+        const prevPaid = Number(targetInv.paidAmount) || 0;
+        const currentReceiptPaid = Number(amountPaid) || 0;
+        const updatedPaid = prevPaid + currentReceiptPaid;
+        const updatedRemaining = Math.max(0, (Number(targetInv.totalAmount) || 0) - updatedPaid);
+
+        const existingHistory = Array.isArray(targetInv.receiptHistory)
+          ? targetInv.receiptHistory
+          : [];
+        const receiptEntry = {
+          receiptNumber: record.docNumber,
+          receiptId: record.id,
+          date: record.date,
+          time: record.time,
+          amount: currentReceiptPaid,
+          receiptTowards: record.receiptTowards,
+        };
+
+        const updatedInvoice = {
+          ...targetInv,
+          paidAmount: updatedPaid,
+          remainingBalance: updatedRemaining,
+          receiptHistory: [...existingHistory, receiptEntry],
+          receiptNumbers: [
+            ...(targetInv.receiptNumbers || []).filter((r) => r !== record.docNumber),
+            record.docNumber,
+          ],
+        };
+
+        updated[targetInvIndex] = updatedInvoice;
+
+        try {
+          await api.post("/Admin/Billing/Save", updatedInvoice);
+        } catch (err) {
+          console.warn("Backend DB sync warning for invoice:", err);
+        }
+
+        toast.success(
+          `Allocated to ${targetInv.docNumber}: Remaining balance updated to ₹${updatedRemaining.toLocaleString("en-IN")}`
+        );
       }
     }
 
@@ -1299,6 +1459,7 @@ export default function BillingInvoiceReceiptPage() {
       intermediateRows,
       customColumns,
       accentColor,
+      allocatedInvoiceNumber: isDoc ? (customDoc.allocatedInvoiceNumber || "") : (mode === "RECEIPT" ? allocatedInvoiceDocNumber : ""),
     };
 
     const docHtml = buildDocPrintHtml(docToPrint, firm, brandingSettings);
@@ -1785,11 +1946,88 @@ export default function BillingInvoiceReceiptPage() {
                           <div>{doc.date}</div>
                           <small style={{ color: "#64748b" }}>{doc.time || ""}</small>
                         </td>
-                        <td style={{ textAlign: "right", fontWeight: "700" }}>
-                          ₹{Number(doc.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ fontWeight: "700", color: "#0f172a" }}>
+                            ₹{Number(doc.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </div>
+                          {doc.type === "RECEIPT" && (doc.allocatedInvoiceNumber || (doc.receiptTowards && doc.receiptTowards.includes("INV-"))) && (
+                            <div style={{ fontSize: "10.5px", marginTop: "3px" }}>
+                              {doc.allocatedInvoiceNumber ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const inv = savedArchive.find((d) => d.docNumber === doc.allocatedInvoiceNumber);
+                                    if (inv) setPreviewModalDoc(inv);
+                                    else toast.error(`Invoice ${doc.allocatedInvoiceNumber} not found`);
+                                  }}
+                                  style={{
+                                    background: "#eff6ff",
+                                    border: "1px solid #93c5fd",
+                                    borderRadius: "4px",
+                                    padding: "1px 6px",
+                                    fontSize: "10px",
+                                    color: "#1e40af",
+                                    cursor: "pointer",
+                                    fontWeight: "700",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "3px",
+                                  }}
+                                  title={`Click to view linked Invoice ${doc.allocatedInvoiceNumber}`}
+                                >
+                                  <HiOutlineEye size={10} /> Inv: {doc.allocatedInvoiceNumber}
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
                         </td>
-                        <td style={{ textAlign: "right", color: "#15803d", fontWeight: "700" }}>
-                          ₹{Number(doc.paidAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ color: "#15803d", fontWeight: "700" }}>
+                            ₹{Number(doc.paidAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </div>
+                          {doc.type === "INVOICE" && (() => {
+                            const receipts = getReceiptsForInvoice(doc);
+                            if (receipts.length === 0) return null;
+                            return (
+                              <div style={{ marginTop: "4px", display: "flex", flexDirection: "column", gap: "3px", alignItems: "flex-end" }}>
+                                {receipts.map((rcp, rIdx) => (
+                                  <div key={rIdx} style={{ fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                    <span style={{ color: "#059669", fontWeight: "700" }}>
+                                      - ₹{Number(rcp.amount).toLocaleString("en-IN")}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const fullReceipt = savedArchive.find(
+                                          (d) => d.docNumber === rcp.receiptNumber || d.id === rcp.receiptId
+                                        ) || rcp.doc;
+                                        if (fullReceipt) setPreviewModalDoc(fullReceipt);
+                                        else toast.error(`Receipt ${rcp.receiptNumber} not found`);
+                                      }}
+                                      title={`Click to view Receipt ${rcp.receiptNumber}`}
+                                      style={{
+                                        background: "#ecfdf5",
+                                        border: "1px solid #6ee7b7",
+                                        borderRadius: "4px",
+                                        padding: "1px 5px",
+                                        color: "#065f46",
+                                        fontWeight: "700",
+                                        fontSize: "10px",
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "2px",
+                                      }}
+                                    >
+                                      <HiOutlineEye size={10} /> {rcp.receiptNumber}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td
                           style={{
@@ -1798,7 +2036,20 @@ export default function BillingInvoiceReceiptPage() {
                             color: isFullyPaid ? "#15803d" : "#dc2626",
                           }}
                         >
-                          ₹{Number(doc.remainingBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          <div>
+                            ₹{Number(doc.remainingBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </div>
+                          {doc.type === "INVOICE" && (
+                            <div style={{ fontSize: "10.5px", fontWeight: "700", marginTop: "2px" }}>
+                              {isFullyPaid ? (
+                                <span style={{ color: "#16a34a" }}>✓ Fully Settled</span>
+                              ) : isPartial ? (
+                                <span style={{ color: "#d97706" }}>Due: ₹{Number(doc.remainingBalance).toLocaleString("en-IN")}</span>
+                              ) : (
+                                <span style={{ color: "#dc2626" }}>Unpaid (₹{Number(doc.remainingBalance).toLocaleString("en-IN")})</span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td>
                           <span className={`payment-mode-tag mode-tag-${(doc.paymentMode || "UPI").toLowerCase().replace('_', '-')}`}>
@@ -1817,6 +2068,28 @@ export default function BillingInvoiceReceiptPage() {
                         </td>
                         <td style={{ textAlign: "right" }}>
                           <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                            {/* View Document */}
+                            <button
+                              type="button"
+                              onClick={() => setPreviewModalDoc(doc)}
+                              title="View full document preview"
+                              style={{
+                                padding: "5px 9px",
+                                background: "#f0fdf4",
+                                border: "1px solid #bbf7d0",
+                                borderRadius: "6px",
+                                color: "#166534",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontWeight: "700",
+                              }}
+                            >
+                              <HiOutlineEye size={14} /> View
+                            </button>
+
                             {/* Download PDF */}
                             <button
                               type="button"
@@ -2083,6 +2356,138 @@ export default function BillingInvoiceReceiptPage() {
                     );
                   })
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── ADMIN FULL DOCUMENT PREVIEW MODAL ── */}
+        {previewModalDoc && (
+          <div
+            className="seal-modal-overlay"
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(15, 23, 42, 0.75)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 999999,
+              padding: "20px",
+            }}
+            onClick={() => setPreviewModalDoc(null)}
+          >
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "16px",
+                width: "100%",
+                maxWidth: previewModalDoc.type === "RECEIPT" ? "1050px" : "850px",
+                maxHeight: "92vh",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "16px 22px",
+                  background: previewModalDoc.type === "RECEIPT" ? "#ecfdf5" : "#eff6ff",
+                  borderBottom: `2px solid ${previewModalDoc.type === "RECEIPT" ? "#a7f3d0" : "#bfdbfe"}`,
+                }}
+              >
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: previewModalDoc.type === "RECEIPT" ? "#065f46" : "#1e40af" }}>
+                    {previewModalDoc.type === "RECEIPT" ? "Official Payment Receipt" : "Tax Invoice"} — {previewModalDoc.docNumber}
+                  </h3>
+                  <small style={{ color: "#64748b" }}>
+                    Client: <strong>{previewModalDoc.clientName}</strong> • Date: <strong>{previewModalDoc.date}</strong>
+                  </small>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPdf(previewModalDoc)}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#7c3aed",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      fontWeight: "700",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <HiOutlineArrowDownTray size={14} /> Download PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintDocument(previewModalDoc)}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#2563eb",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      fontWeight: "700",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <HiOutlinePrinter size={14} /> Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewModalDoc(null)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#64748b",
+                      cursor: "pointer",
+                      padding: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <HiOutlineXMark size={22} />
+                  </button>
+                </div>
+              </div>
+              <div
+                style={{
+                  padding: "24px",
+                  overflowY: "auto",
+                  flex: 1,
+                  background: "#f8fafc",
+                }}
+              >
+                <div
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: "10px",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+                    padding: "16px",
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: buildDocPrintHtml(previewModalDoc, firm, brandingSettings),
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -2986,12 +3391,150 @@ export default function BillingInvoiceReceiptPage() {
               </div>
             </div>
 
-            {/* RECEIPT SPECIFIC: PURPOSE & UNPAID INVOICE ALLOCATOR */}
+            {/* RECEIPT SPECIFIC: PAYER, PURPOSE WITH QUICK RESPONSES & INVOICE ALLOCATOR */}
             {mode === "RECEIPT" && (
-              <div style={{ background: "#ecfdf5", border: "1.5px solid #a7f3d0", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px" }}>
-                <div className="billing-form-group" style={{ marginBottom: "10px" }}>
+              <div style={{ background: "#ecfdf5", border: "1.5px solid #a7f3d0", borderRadius: "12px", padding: "16px 20px", marginBottom: "18px" }}>
+                {/* 1. Received With Thanks From */}
+                <div className="billing-form-group" style={{ marginBottom: "14px" }}>
                   <label className="billing-label" style={{ color: "#065f46", fontSize: "13.5px", fontWeight: "800" }}>
-                    <span>Received With Thanks From / Being Payment Towards *</span>
+                    <span>Received With Thanks From (Client / Payer Legal Name) *</span>
+                    <small style={{ color: "#047857" }}>Payer name printed on Official Receipt</small>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={client.contactPerson || client.name}
+                    onChange={(e) => setClient((prev) => ({ ...prev, contactPerson: e.target.value, name: prev.name || e.target.value }))}
+                    className="billing-input"
+                    placeholder="e.g. Parimala M, The Managing Director, Client Business Name..."
+                    style={{ background: "#ffffff", borderColor: "#a7f3d0", fontWeight: "700", fontSize: "14px", color: "#0f172a" }}
+                  />
+
+                  {/* Payer Quick-Fill Chips with Admin Delete Option */}
+                  <div style={{ marginTop: "8px", display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: "11px", fontWeight: "800", color: "#047857" }}>Quick Payer:</span>
+                    {client.name && (
+                      <button
+                        type="button"
+                        onClick={() => setClient((prev) => ({ ...prev, contactPerson: client.name }))}
+                        style={{
+                          padding: "2px 8px",
+                          background: "#ffffff",
+                          border: "1px solid #10b981",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          color: "#065f46",
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Client: {client.name}
+                      </button>
+                    )}
+                    {payerQuickResponses.map((payer, pIdx) => (
+                      <span
+                        key={pIdx}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "2px 8px",
+                          background: "#ffffff",
+                          border: "1px solid #6ee7b7",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          color: "#065f46",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setClient((prev) => ({ ...prev, contactPerson: payer }))}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            color: "#065f46",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            fontSize: "11px",
+                          }}
+                        >
+                          + {payer}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeletePayerResponse(payer, e)}
+                          title={`Delete "${payer}" from quick responses`}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: "0 2px",
+                            color: "#ef4444",
+                            cursor: "pointer",
+                            fontWeight: "900",
+                            fontSize: "13px",
+                            lineHeight: "1",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {isAddingPayer ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <input
+                          type="text"
+                          value={newPayerText}
+                          onChange={(e) => setNewPayerText(e.target.value)}
+                          placeholder="New payer option..."
+                          style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #059669", outline: "none" }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddPayerResponse();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddPayerResponse}
+                          style={{ fontSize: "10px", padding: "2px 6px", background: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "700" }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingPayer(false)}
+                          style={{ fontSize: "10px", padding: "2px 6px", background: "#e2e8f0", color: "#475569", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingPayer(true)}
+                        style={{
+                          padding: "2px 8px",
+                          background: "#f0fdf4",
+                          border: "1px dashed #059669",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          color: "#059669",
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Add Custom
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Being Payment Towards / On Account Of */}
+                <div className="billing-form-group" style={{ marginBottom: "14px" }}>
+                  <label className="billing-label" style={{ color: "#065f46", fontSize: "13.5px", fontWeight: "800" }}>
+                    <span>Being Payment Towards / On Account Of *</span>
                     <small style={{ color: "#047857" }}>Receipt Acknowledgment Purpose</small>
                   </label>
                   <input
@@ -3000,71 +3543,197 @@ export default function BillingInvoiceReceiptPage() {
                     value={receiptTowards}
                     onChange={(e) => setReceiptTowards(e.target.value)}
                     className="billing-input"
-                    placeholder="e.g. Settlement for Tax Audit FY 2025-26, Retainer Advance, Invoice Settlement..."
+                    placeholder="e.g. Settlement for Tax Invoice INV-2026-1042, Audit Retainer Advance..."
                     style={{ background: "#ffffff", borderColor: "#a7f3d0", fontWeight: "600", fontSize: "14px" }}
                   />
-                </div>
 
-                {/* Quick-Fill Chips */}
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ fontSize: "11px", fontWeight: "700", color: "#047857" }}>Quick Purpose:</span>
-                  {[
-                    "Full Settlement of Outstanding Balance",
-                    "Part Payment Against Invoice",
-                    "Annual GST & Audit Filing Advance",
-                    "Income Tax Scrutiny Representation",
-                    "Quarterly Legal Retainer Fees"
-                  ].map((purpose, pIdx) => (
-                    <button
-                      key={pIdx}
-                      type="button"
-                      onClick={() => setReceiptTowards(purpose)}
-                      style={{
-                        padding: "3px 9px",
-                        background: "#ffffff",
-                        border: "1px solid #10b981",
-                        borderRadius: "6px",
-                        fontSize: "11px",
-                        fontWeight: "600",
-                        color: "#065f46",
-                        cursor: "pointer",
-                      }}
-                    >
-                      + {purpose}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Unpaid Invoice Direct Allocation Dropdown */}
-                {clientUnpaidInvoices.length > 0 && (
-                  <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed #6ee7b7" }}>
-                    <label style={{ fontSize: "12px", fontWeight: "800", color: "#065f46", display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-                      🎯 Allocate Directly to Unpaid Client Invoice:
-                      <span style={{ fontSize: "11px", color: "#047857", fontWeight: "600" }}>({clientUnpaidInvoices.length} unpaid bill(s) found)</span>
-                    </label>
-                    <select
-                      className="billing-select"
-                      style={{ background: "#ffffff", borderColor: "#10b981", fontWeight: "700", color: "#065f46" }}
-                      onChange={(e) => {
-                        const selectedInvNum = e.target.value;
-                        if (!selectedInvNum) return;
-                        const targetInv = clientUnpaidInvoices.find((u) => u.docNumber === selectedInvNum);
-                        if (targetInv) {
-                          setReceiptTowards(`Settlement for Tax Invoice ${targetInv.docNumber} (Dated ${targetInv.date || targetInv.docDate})`);
-                          setAmountPaid(Number(targetInv.remainingBalance) || 0);
-                          toast.success(`Allocated to ${targetInv.docNumber} with balance ₹${Number(targetInv.remainingBalance).toLocaleString("en-IN")}`);
-                        }
-                      }}
-                    >
-                      <option value="">-- Choose Unpaid Invoice to Allocate Payment --</option>
-                      {clientUnpaidInvoices.map((inv) => (
-                        <option key={inv.docNumber} value={inv.docNumber}>
-                          {inv.docNumber} — Due: ₹${Number(inv.remainingBalance).toLocaleString("en-IN")} ({inv.date || inv.docDate})
-                        </option>
-                      ))}
-                    </select>
+                  {/* Purpose Quick-Fill Chips with Admin Delete Option */}
+                  <div style={{ marginTop: "8px", display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: "11px", fontWeight: "800", color: "#047857" }}>Quick Purpose:</span>
+                    {purposeQuickResponses.map((purpose, pIdx) => (
+                      <span
+                        key={pIdx}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "2px 8px",
+                          background: "#ffffff",
+                          border: "1px solid #6ee7b7",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          color: "#065f46",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setReceiptTowards(purpose)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            color: "#065f46",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            fontSize: "11px",
+                          }}
+                        >
+                          + {purpose}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeletePurposeResponse(purpose, e)}
+                          title={`Delete "${purpose}" from quick responses`}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: "0 2px",
+                            color: "#ef4444",
+                            cursor: "pointer",
+                            fontWeight: "900",
+                            fontSize: "13px",
+                            lineHeight: "1",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {isAddingPurpose ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <input
+                          type="text"
+                          value={newPurposeText}
+                          onChange={(e) => setNewPurposeText(e.target.value)}
+                          placeholder="New purpose option..."
+                          style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #059669", outline: "none" }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddPurposeResponse();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddPurposeResponse}
+                          style={{ fontSize: "10px", padding: "2px 6px", background: "#059669", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "700" }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingPurpose(false)}
+                          style={{ fontSize: "10px", padding: "2px 6px", background: "#e2e8f0", color: "#475569", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingPurpose(true)}
+                        style={{
+                          padding: "2px 8px",
+                          background: "#f0fdf4",
+                          border: "1px dashed #059669",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          color: "#059669",
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Add Custom
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* 3. Unpaid Invoice Direct Allocation with Live Breakdown */}
+                <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1.5px dashed #6ee7b7" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "13px", fontWeight: "800", color: "#065f46", display: "flex", alignItems: "center", gap: "6px" }}>
+                      🎯 Allocate Directly to Pending Client Invoice:
+                    </label>
+                    {clientUnpaidInvoices.length > 0 && (
+                      <span style={{ fontSize: "11px", background: "#d1fae5", color: "#065f46", padding: "2px 9px", borderRadius: "999px", fontWeight: "800" }}>
+                        {clientUnpaidInvoices.length} Pending Invoice(s) Found
+                      </span>
+                    )}
+                  </div>
+
+                  {clientUnpaidInvoices.length > 0 ? (
+                    <>
+                      <select
+                        className="billing-select"
+                        value={allocatedInvoiceDocNumber}
+                        style={{ background: "#ffffff", borderColor: "#10b981", fontWeight: "700", color: "#065f46", fontSize: "13.5px" }}
+                        onChange={(e) => {
+                          const selectedInvNum = e.target.value;
+                          setAllocatedInvoiceDocNumber(selectedInvNum);
+                          if (!selectedInvNum) return;
+                          const targetInv = clientUnpaidInvoices.find((u) => u.docNumber === selectedInvNum);
+                          if (targetInv) {
+                            setReceiptTowards(`Settlement for Tax Invoice ${targetInv.docNumber} (Dated ${targetInv.date || targetInv.docDate})`);
+                            setAmountPaid(Number(targetInv.remainingBalance) || 0);
+                            toast.success(`Allocated to ${targetInv.docNumber} (Balance: ₹${Number(targetInv.remainingBalance).toLocaleString("en-IN")})`);
+                          }
+                        }}
+                      >
+                        <option value="">-- Choose Unpaid Invoice to Allocate Payment --</option>
+                        {clientUnpaidInvoices.map((inv, idx) => (
+                          <option key={inv.docNumber} value={inv.docNumber}>
+                            {inv.docNumber} — Due: ₹{Number(inv.remainingBalance).toLocaleString("en-IN")} (Total: ₹{Number(inv.totalAmount).toLocaleString("en-IN")}) {idx === 0 ? "★ LATEST INVOICE" : ""}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Live Real-Time Invoice Remaining Deduction Calculation */}
+                      {(() => {
+                        const targetInv = clientUnpaidInvoices.find((u) => u.docNumber === allocatedInvoiceDocNumber);
+                        if (!targetInv) return null;
+                        const invTotal = Number(targetInv.totalAmount) || 0;
+                        const invPrevPaid = Number(targetInv.paidAmount) || 0;
+                        const receiptPayment = Number(amountPaid) || 0;
+                        const remainingAfter = Math.max(0, invTotal - (invPrevPaid + receiptPayment));
+                        const isSettled = remainingAfter <= 0;
+                        return (
+                          <div
+                            style={{
+                              marginTop: "10px",
+                              padding: "10px 14px",
+                              background: "#ffffff",
+                              border: "1.5px solid #10b981",
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                              color: "#1e293b",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "800", color: "#065f46", marginBottom: "6px" }}>
+                              <span>📊 Invoice {targetInv.docNumber} Balance Deduction Breakdown:</span>
+                              <span style={{ color: isSettled ? "#16a34a" : "#d97706", background: isSettled ? "#dcfce7" : "#fef3c7", padding: "1px 8px", borderRadius: "4px" }}>
+                                {isSettled ? "✓ FULLY SETTLED" : "PARTIAL SETTLEMENT"}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", fontSize: "12.5px" }}>
+                              <div>Invoice Total: <strong>₹{invTotal.toLocaleString("en-IN")}</strong></div>
+                              <div>Already Paid: <strong style={{ color: "#059669" }}>- ₹{invPrevPaid.toLocaleString("en-IN")}</strong></div>
+                              <div>This Receipt: <strong style={{ color: "#2563eb" }}>- ₹{receiptPayment.toLocaleString("en-IN")}</strong></div>
+                              <div>
+                                Remaining After: <strong style={{ color: isSettled ? "#16a34a" : "#dc2626", fontSize: "13.5px" }}>= ₹{remainingAfter.toLocaleString("en-IN")}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <div style={{ fontSize: "12px", color: "#047857", background: "#f0fdf4", padding: "8px 12px", borderRadius: "6px" }}>
+                      No unpaid invoices found for this client. Receipt will be recorded as general retainer / advance payment.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

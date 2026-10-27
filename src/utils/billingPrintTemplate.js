@@ -166,7 +166,7 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
     // HIGH-FIDELITY PAYMENT RECEIPT (HORIZONTAL VOUCHER)
     // ═════════════════════════════════════════════════════════════════════════
     return `
-      <div class="doc-paper-receipt" style="border: 2px solid #059669; padding: 16px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; box-sizing: border-box; width: 100%; background: #ffffff; break-inside: avoid; page-break-inside: avoid;">
+      <div class="doc-paper-receipt" style="border: 2px solid #059669; border-radius: 12px; margin: 6px auto 0 auto; padding: 18px 22px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; box-sizing: border-box; width: 100%; background: #ffffff; break-inside: avoid; page-break-inside: avoid;">
         <div class="doc-receipt-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #059669; padding-bottom: 8px; margin-bottom: 10px; break-inside: avoid;">
           <div>
             <h2 style="margin: 0; color: #065f46; font-size: 20px; font-weight: 900; letter-spacing: -0.2px;">${firm.name}</h2>
@@ -261,7 +261,7 @@ export function buildDocPrintHtml(doc, firmInfo = {}, brandingSettings = {}) {
   // Standard 1-4 items fits cleanly on 1 page; 5+ items paginate seamlessly
   // ═════════════════════════════════════════════════════════════════════════
   return `
-    <div class="doc-paper-invoice" style="border: 1px solid #cbd5e1; padding: 14px 18px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; box-sizing: border-box; width: 100%; background: #ffffff; position: relative;">
+    <div class="doc-paper-invoice" style="border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; margin: 6px auto 0 auto; padding: 16px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; box-sizing: border-box; width: 100%; background: #ffffff; position: relative;">
       <!-- Accent Top Stripe -->
       <div class="doc-invoice-stripe" style="position: absolute; top: 0; left: 0; right: 0; height: 5px; background: ${accentColor};"></div>
 
