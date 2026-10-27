@@ -38,11 +38,29 @@ export default function StaffNotifications() {
     return () => window.removeEventListener("skc-sound-settings-changed", handleSoundChange);
   }, []);
 
+  // Deduplicate notifications helper
+  const deduplicateNotifs = (list) => {
+    if (!Array.isArray(list)) return [];
+    const seenIds = new Set();
+    const seenContent = new Set();
+    return list.filter((item) => {
+      if (!item) return false;
+      if (item.id && seenIds.has(item.id)) return false;
+      if (item.id) seenIds.add(item.id);
+
+      const contentKey = `${item.title || ""}_${item.message || ""}_${String(item.createdAt || "").slice(0, 16)}`;
+      if (seenContent.has(contentKey)) return false;
+      seenContent.add(contentKey);
+
+      return true;
+    });
+  };
+
   const fetchNotifs = async () => {
     setLoading(true);
     try {
       const res = await api.get("/Staff/Notifications");
-      setNotifications(res.data || []);
+      setNotifications(deduplicateNotifs(res.data || []));
     } catch {
       toast.error("Failed to load notifications");
     } finally {
@@ -52,6 +70,11 @@ export default function StaffNotifications() {
 
   useEffect(() => {
     fetchNotifs();
+    const handleNotifArrived = () => {
+      fetchNotifs();
+    };
+    window.addEventListener("skc-notification-arrived", handleNotifArrived);
+    return () => window.removeEventListener("skc-notification-arrived", handleNotifArrived);
   }, []);
 
   const handleMarkAllRead = async () => {
@@ -112,26 +135,39 @@ export default function StaffNotifications() {
     });
   }, [notifications, filter]);
 
-  // Relative time helper
+  // Relative time helper with UTC & IST timezone normalization
   const formatTime = (dateStr) => {
     if (!dateStr) return "";
     try {
-      const d = new Date(dateStr);
+      let normalized = String(dateStr).trim();
+      if (!normalized.endsWith("Z") && !normalized.includes("+") && !normalized.match(/-\d{2}:\d{2}$/)) {
+        normalized = normalized + "Z";
+      }
+      const d = new Date(normalized);
       if (isNaN(d.getTime())) return dateStr;
       const now = new Date();
-      const diffMs = now - d;
+      const diffMs = now.getTime() - d.getTime();
+
+      // If created within the last 60 seconds (or slight clock skew), show "Just now"
+      if (diffMs < 60000) return "Just now";
       const diffMins = Math.floor(diffMs / 60000);
       const diffHours = Math.floor(diffMins / 60);
       const diffDays = Math.floor(diffHours / 24);
 
-      if (diffMins < 1) return "Just now";
       if (diffMins < 60) return `${diffMins}m ago`;
       if (diffHours < 24) return `${diffHours}h ago`;
       if (diffDays === 1) return "Yesterday";
       if (diffDays < 7) return `${diffDays}d ago`;
-      return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+
+      return d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
     } catch {
-      return "";
+      return dateStr;
     }
   };
 

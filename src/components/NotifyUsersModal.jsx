@@ -35,6 +35,7 @@ export default function NotifyUsersModal({ isOpen, onClose, onSuccess }) {
       });
 
       toast.success(res.data?.message || "Notification broadcast dispatched successfully!");
+      window.dispatchEvent(new CustomEvent("skc-notification-arrived", { detail: { title, message } }));
       setTitle("");
       setMessage("");
       setTarget("all");
