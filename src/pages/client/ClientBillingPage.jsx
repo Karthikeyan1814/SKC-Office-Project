@@ -16,11 +16,17 @@ import {
   HiOutlineArrowPath,
   HiOutlineEye,
   HiOutlineXMark,
+  HiOutlineEnvelope,
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { buildDocPrintHtml } from "../../utils/billingPrintTemplate";
-import { shareViaWhatsApp, generateDocumentBlob } from "../../utils/whatsappShareHelper";
+import {
+  shareViaWhatsApp,
+  shareViaEmail,
+  generateVectorPdfBlob,
+  downloadBlob,
+} from "../../utils/whatsappShareHelper";
 
 // Default Firm Bank Info
 const FIRM_INFO = {
@@ -324,71 +330,11 @@ export default function ClientBillingPage() {
     const docTitle = `${doc.type}_${doc.docNumber}`;
     try {
       toast.loading("Generating vector PDF...", { id: "client-pdf-dl" });
-      const html2pdfModule = await import("html2pdf.js");
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-
       const docHtml = buildDocPrintHtml(doc, firmInfo);
-
-      // Create a dedicated off-screen (within 0,0 viewport) mount container
-      const mount = document.createElement("div");
-      mount.id = "skc-client-pdf-mount";
-      mount.style.position = "fixed";
-      mount.style.left = "0px";
-      mount.style.top = "0px";
-      mount.style.width = isReceipt ? "1122px" : "794px";
-      mount.style.zIndex = "-999999";
-      mount.style.opacity = "1";
-      mount.style.pointerEvents = "none";
-      mount.style.backgroundColor = "#ffffff";
-      mount.style.margin = "0";
-      mount.style.padding = "0";
-      mount.innerHTML = docHtml;
-
-      document.body.appendChild(mount);
-
-      if (document.fonts && document.fonts.ready) {
-        try { await document.fonts.ready; } catch {}
-      }
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const opt = {
-        margin: isReceipt ? [6, 6, 6, 6] : [6, 6, 6, 6],
-        filename: `${docTitle}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          scrollX: 0,
-          scrollY: 0,
-          windowWidth: isReceipt ? 1122 : 794,
-          x: 0,
-          y: 0,
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: isReceipt ? "landscape" : "portrait",
-        },
-        pagebreak: {
-          mode: ["avoid-all", "css", "legacy"],
-          avoid: [
-            ".doc-summary-split",
-            ".doc-footer-grid",
-            ".doc-terms",
-            ".doc-seal-box",
-            ".doc-signatory",
-            ".doc-payment-status",
-            ".doc-amount-words",
-            "tr",
-          ],
-        },
-      };
-
-      await html2pdf().set(opt).from(mount).save();
-      document.body.removeChild(mount);
+      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      downloadBlob(pdfBlob, `${docTitle}.pdf`);
       toast.dismiss("client-pdf-dl");
-      toast.success(`Downloaded ${docTitle}.pdf`);
+      toast.success(`Downloaded ${docTitle}.pdf successfully!`);
     } catch (err) {
       console.error(err);
       toast.dismiss("client-pdf-dl");
@@ -396,39 +342,57 @@ export default function ClientBillingPage() {
     }
   };
 
-  // WhatsApp Share with Attached Document File
+  // WhatsApp Share with Attached PDF File (No Captions)
   const handleWhatsAppShareDoc = async (doc) => {
+    if (!doc) return;
     const isReceipt = doc.type === "RECEIPT";
-    const docHtml = buildDocPrintHtml(doc, firmInfo);
-    const docBlob = generateDocumentBlob(docHtml, `${doc.type}_${doc.docNumber}`);
-
+    const docTitle = `${doc.type}_${doc.docNumber}`;
     const clientMobile = localStorage.getItem("skc-mobile") || doc.clientMobile || "";
-    const total = Number(doc.totalAmount) || 0;
-    const paid = Number(doc.paidAmount) || 0;
-    const balance = Number(doc.remainingBalance) || 0;
 
-    const message = `*${firmInfo.name}* - Official Billing Document\n\n` +
-      `Hello *${doc.clientName || clientName}*,\n` +
-      `Here are your official verified details for *${isReceipt ? "Payment Receipt" : "Tax Invoice"}*:\n` +
-      `📄 *Doc No:* ${doc.docNumber}\n` +
-      `📅 *Date:* ${doc.date}\n` +
-      `💰 *Total Amount:* ₹${total.toLocaleString("en-IN")}\n` +
-      `💳 *Amount Paid:* ₹${paid.toLocaleString("en-IN")}\n` +
-      `⚖️ *Remaining Balance:* ₹${balance.toLocaleString("en-IN")}\n\n` +
-      `Authorized Bank Details:\n` +
-      `🏦 Bank: ${firmInfo.bankName} (A/C: ${firmInfo.accountNumber}, IFSC: ${firmInfo.ifscCode})\n` +
-      `📱 UPI ID: ${firmInfo.upiId}\n\n` +
-      `Document copy has been attached.`;
+    toast.loading("Preparing PDF for WhatsApp...", { id: "client-wa-share" });
+    try {
+      const docHtml = buildDocPrintHtml(doc, firmInfo);
+      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      toast.dismiss("client-wa-share");
 
-    await shareViaWhatsApp({
-      fileBlob: docBlob,
-      fileName: `${doc.type}_${doc.docNumber}.html`,
-      fileMimeType: "text/html",
-      phone: clientMobile,
-      title: `${isReceipt ? "Payment Receipt" : "Tax Invoice"} - ${doc.docNumber}`,
-      message,
-      directUrl: `${window.location.origin}/portal/billing`,
-    });
+      await shareViaWhatsApp({
+        fileBlob: pdfBlob,
+        fileName: `${docTitle}.pdf`,
+        phone: clientMobile,
+        title: `${isReceipt ? "Payment Receipt" : "Tax Invoice"} - ${doc.docNumber}`,
+      });
+    } catch (err) {
+      console.error("WhatsApp share error:", err);
+      toast.dismiss("client-wa-share");
+      toast.error("Could not prepare PDF for WhatsApp.");
+    }
+  };
+
+  // Default Email Share with Attached PDF File
+  const handleEmailShareDoc = async (doc) => {
+    if (!doc) return;
+    const isReceipt = doc.type === "RECEIPT";
+    const docTitle = `${doc.type}_${doc.docNumber}`;
+    const clientEmail = doc.clientEmail || "";
+
+    toast.loading("Preparing PDF for Email...", { id: "client-email-share" });
+    try {
+      const docHtml = buildDocPrintHtml(doc, firmInfo);
+      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      toast.dismiss("client-email-share");
+
+      await shareViaEmail({
+        fileBlob: pdfBlob,
+        fileName: `${docTitle}.pdf`,
+        email: clientEmail,
+        title: `${isReceipt ? "Payment Receipt" : "Tax Invoice"}`,
+        docNo: doc.docNumber,
+      });
+    } catch (err) {
+      console.error("Email share error:", err);
+      toast.dismiss("client-email-share");
+      toast.error("Could not prepare PDF for Email.");
+    }
   };
 
   return (
@@ -816,6 +780,28 @@ export default function ClientBillingPage() {
                           >
                             <FaWhatsapp size={14} /> WhatsApp
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleEmailShareDoc(doc)}
+                            style={{
+                              padding: "5px 10px",
+                              background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                              color: "#ffffff",
+                              border: "none",
+                              borderRadius: "7px",
+                              fontSize: "12px",
+                              fontWeight: "700",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)",
+                            }}
+                            title="Share document directly via default Email client"
+                          >
+                            <HiOutlineEnvelope size={14} /> Email
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -952,6 +938,27 @@ export default function ClientBillingPage() {
                   }}
                 >
                   <FaWhatsapp size={15} /> WhatsApp
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleEmailShareDoc(selectedDocPreview)}
+                  style={{
+                    padding: "7px 14px",
+                    background: "#0284c7",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontWeight: "700",
+                    fontSize: "12.5px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                  title="Share PDF via default Email client"
+                >
+                  <HiOutlineEnvelope size={15} /> Email
                 </button>
 
                 <button

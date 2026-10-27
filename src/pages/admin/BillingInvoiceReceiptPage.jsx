@@ -38,7 +38,12 @@ import {
   HiOutlineEnvelope,
 } from "react-icons/hi2";
 import { FaWhatsapp } from "react-icons/fa";
-import { shareViaWhatsApp, generateDocumentBlob } from "../../utils/whatsappShareHelper";
+import {
+  shareViaWhatsApp,
+  shareViaEmail,
+  generateVectorPdfBlob,
+  downloadBlob,
+} from "../../utils/whatsappShareHelper";
 import { buildDocPrintHtml } from "../../utils/billingPrintTemplate";
 
 // Default Firm Information
@@ -1256,112 +1261,66 @@ export default function BillingInvoiceReceiptPage() {
     printWindow.document.close();
   };
 
-  // ─── DIRECT HIGH-RESOLUTION PDF DOWNLOAD ───
-  const handleDownloadPdf = async (customDoc = null) => {
+  // ─── DOCUMENT DATA PACKAGER FOR PDF / SHARING ───
+  const getDocPayload = (customDoc = null) => {
     const isDoc = !!customDoc;
     const isReceipt = isDoc ? customDoc.type === "RECEIPT" : mode === "RECEIPT";
     const docNo = isDoc ? customDoc.docNumber : (isReceipt ? receiptNumber : invoiceNumber);
     const docTitle = `${isReceipt ? "Receipt" : "Invoice"}_${docNo}`;
 
+    const docToPrint = customDoc || {
+      type: mode,
+      docNumber: docNo,
+      date: docDate,
+      time: docTime,
+      dueDate,
+      referenceNo,
+      clientName: client.name,
+      clientLegalName: client.contactPerson,
+      clientMobile: client.mobile,
+      clientEmail: client.email,
+      clientGstin: client.gstin,
+      clientPan: client.pan,
+      clientAddress: client.address,
+      clientState: client.state,
+      clientStateCode: client.stateCode,
+      items: itemsCalculated || items,
+      totalAmount: netPayable,
+      currentInvoiceTotal: currentInvoiceTotal,
+      totalOutstanding: Number(totalOutstanding) || 0,
+      declaredNetWorthPayable: declaredNetWorthPayable,
+      declaredAdjustmentDiff: declaredDiff,
+      declaredAdjustmentNote: activeAdjustmentNote,
+      paidAmount: amountPaid,
+      remainingBalance,
+      paymentMode,
+      receiptTowards,
+      intermediateRows,
+      customColumns,
+      accentColor,
+    };
+
+    const docHtml = buildDocPrintHtml(docToPrint, firm, brandingSettings);
+    return {
+      isDoc,
+      isReceipt,
+      docNo,
+      docTitle,
+      docToPrint,
+      docHtml,
+      clientMobile: isDoc ? (customDoc.clientMobile || "") : client.mobile,
+      clientEmail: isDoc ? (customDoc.clientEmail || "") : client.email,
+    };
+  };
+
+  // ─── DIRECT HIGH-RESOLUTION PDF DOWNLOAD ───
+  const handleDownloadPdf = async (customDoc = null) => {
+    const { isReceipt, docTitle, docHtml } = getDocPayload(customDoc);
+
     try {
       toast.loading("Generating vector PDF...", { id: "pdf-download" });
-      const html2pdfModule = await import("html2pdf.js");
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-
-      const docToPrint = customDoc || {
-        type: mode,
-        docNumber: docNo,
-        date: docDate,
-        time: docTime,
-        dueDate,
-        referenceNo,
-        clientName: client.name,
-        clientLegalName: client.contactPerson,
-        clientMobile: client.mobile,
-        clientEmail: client.email,
-        clientGstin: client.gstin,
-        clientPan: client.pan,
-        clientAddress: client.address,
-        clientState: client.state,
-        clientStateCode: client.stateCode,
-        items: itemsCalculated || items,
-        totalAmount: netPayable,
-        currentInvoiceTotal: currentInvoiceTotal,
-        totalOutstanding: Number(totalOutstanding) || 0,
-        declaredNetWorthPayable: declaredNetWorthPayable,
-        declaredAdjustmentDiff: declaredDiff,
-        declaredAdjustmentNote: activeAdjustmentNote,
-        paidAmount: amountPaid,
-        remainingBalance,
-        paymentMode,
-        receiptTowards,
-        intermediateRows,
-        customColumns,
-        accentColor,
-      };
-
-      const docHtml = buildDocPrintHtml(docToPrint, firm, brandingSettings);
-
-      // Create a dedicated off-screen (within 0,0 viewport) mount container
-      const mount = document.createElement("div");
-      mount.id = "skc-pdf-download-mount";
-      mount.style.position = "fixed";
-      mount.style.left = "0px";
-      mount.style.top = "0px";
-      mount.style.width = isReceipt ? "1122px" : "794px";
-      mount.style.zIndex = "-999999";
-      mount.style.opacity = "1";
-      mount.style.pointerEvents = "none";
-      mount.style.backgroundColor = "#ffffff";
-      mount.style.margin = "0";
-      mount.style.padding = "0";
-      mount.innerHTML = docHtml;
-
-      document.body.appendChild(mount);
-
-      // Ensure fonts and images are ready
-      if (document.fonts && document.fonts.ready) {
-        try { await document.fonts.ready; } catch {}
-      }
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const opt = {
-        margin: isReceipt ? [6, 6, 6, 6] : [6, 6, 6, 6],
-        filename: `${docTitle}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          scrollX: 0,
-          scrollY: 0,
-          windowWidth: isReceipt ? 1122 : 794,
-          x: 0,
-          y: 0,
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: isReceipt ? "landscape" : "portrait",
-        },
-        pagebreak: {
-          mode: ["avoid-all", "css", "legacy"],
-          avoid: [
-            ".doc-summary-split",
-            ".doc-footer-grid",
-            ".doc-terms",
-            ".doc-seal-box",
-            ".doc-signatory",
-            ".doc-payment-status",
-            ".doc-amount-words",
-            "tr",
-          ],
-        },
-      };
-
-      await html2pdf().set(opt).from(mount).save();
-
-      document.body.removeChild(mount);
+      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      downloadBlob(pdfBlob, `${docTitle}.pdf`);
 
       toast.dismiss("pdf-download");
       toast.success(`Downloaded ${docTitle}.pdf successfully!`);
@@ -1430,87 +1389,47 @@ export default function BillingInvoiceReceiptPage() {
     toast.success(`Started new blank ${targetMode === "INVOICE" ? "Tax Invoice" : "Payment Receipt"} form`);
   };
 
-  // WhatsApp Share Helper with Native Attachment / Auto-Download Workflow
+  // ─── WHATSAPP SHARE (ATTACH REAL PDF, NO CAPTION) ───
   const handleWhatsAppShare = async (customDoc = null) => {
-    const isDoc = !!customDoc;
-    const isReceipt = isDoc ? customDoc.type === "RECEIPT" : mode === "RECEIPT";
-    const docNo = isDoc ? customDoc.docNumber : (isReceipt ? receiptNumber : invoiceNumber);
-    const clientMobile = isDoc ? (customDoc.clientMobile || "") : client.mobile;
-    const clientName = isDoc ? customDoc.clientName : client.name;
-    const total = isDoc ? customDoc.totalAmount : (isReceipt ? amountPaid : netPayable);
-    const balance = isDoc ? customDoc.remainingBalance : remainingBalance;
+    const { isReceipt, docNo, docTitle, docHtml, clientMobile } = getDocPayload(customDoc);
+    toast.loading("Preparing PDF for WhatsApp...", { id: "wa-share" });
+    try {
+      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      toast.dismiss("wa-share");
 
-    let printableHtml = "";
-    if (!customDoc) {
-      const el = document.getElementById("billing-printable-area");
-      if (el) printableHtml = el.innerHTML;
+      await shareViaWhatsApp({
+        fileBlob: pdfBlob,
+        fileName: `${docTitle}.pdf`,
+        phone: clientMobile,
+        title: `${isReceipt ? "Payment Receipt" : "Tax Invoice"} - ${docNo}`,
+      });
+    } catch (err) {
+      console.error("WhatsApp share error:", err);
+      toast.dismiss("wa-share");
+      toast.error("Could not prepare PDF for WhatsApp.");
     }
-    if (!printableHtml) {
-      printableHtml = buildDocPrintHtml(customDoc || {
-        type: mode,
-        docNumber: docNo,
-        date: docDate,
-        time: docTime,
-        dueDate,
-        clientName: client.name,
-        clientLegalName: client.contactPerson,
-        clientMobile: client.mobile,
-        clientEmail: client.email,
-        clientGstin: client.gstin,
-        clientPan: client.pan,
-        clientAddress: client.address,
-        clientState: client.state,
-        clientStateCode: client.stateCode,
-        items,
-        totalAmount: netPayable,
-        currentInvoiceTotal: currentInvoiceTotal,
-        totalOutstanding: Number(totalOutstanding) || 0,
-        declaredNetWorthPayable: declaredNetWorthPayable,
-        declaredAdjustmentDiff: declaredDiff,
-        declaredAdjustmentNote: activeAdjustmentNote,
-        paidAmount: amountPaid,
-        remainingBalance,
-        paymentMode,
-        receiptTowards,
-        intermediateRows,
-        customColumns,
-      }, firm, brandingSettings);
+  };
+
+  // ─── DEFAULT EMAIL SHARE (ATTACH REAL PDF) ───
+  const handleEmailShare = async (customDoc = null) => {
+    const { isReceipt, docNo, docTitle, docHtml, clientEmail } = getDocPayload(customDoc);
+    toast.loading("Preparing PDF for Email...", { id: "email-share" });
+    try {
+      const pdfBlob = await generateVectorPdfBlob(docHtml, isReceipt, docTitle);
+      toast.dismiss("email-share");
+
+      await shareViaEmail({
+        fileBlob: pdfBlob,
+        fileName: `${docTitle}.pdf`,
+        email: clientEmail,
+        title: `${isReceipt ? "Payment Receipt" : "Tax Invoice"}`,
+        docNo,
+      });
+    } catch (err) {
+      console.error("Email share error:", err);
+      toast.dismiss("email-share");
+      toast.error("Could not prepare PDF for Email.");
     }
-
-    const docBlob = generateDocumentBlob(printableHtml, `${isReceipt ? "Receipt" : "Tax_Invoice"}_${docNo}`);
-
-    const docAdjDiff = isDoc
-      ? (customDoc.declaredAdjustmentDiff !== undefined ? Number(customDoc.declaredAdjustmentDiff) : 0)
-      : declaredDiff;
-    const docAdjNote = isDoc
-      ? (customDoc.declaredAdjustmentNote || customDoc.paymentDetails?.declaredAdjustmentNote || "")
-      : activeAdjustmentNote;
-
-    const message = `*${firm.name}* - Billing Update\n\n` +
-      `Hello *${clientName}*,\n` +
-      `Here are your details for *${isReceipt ? "Payment Receipt" : "Tax Invoice"}*:\n` +
-      `📄 *Doc No:* ${docNo}\n` +
-      `📅 *Date:* ${isDoc ? customDoc.date : docDate}\n` +
-      (docAdjDiff !== 0
-        ? `✨ *Declared Adjustment:* ${docAdjDiff < 0 ? "- " : "+ "}₹${Math.abs(docAdjDiff).toLocaleString("en-IN")}${docAdjNote ? ` (${docAdjNote})` : ""}\n`
-        : "") +
-      `💰 *Total Amount:* ₹${Number(total).toLocaleString("en-IN")}\n` +
-      `💳 *Payment Mode:* ${isDoc ? customDoc.paymentMode : paymentMode}\n` +
-      `⚖️ *Remaining Balance:* ₹${Number(balance).toLocaleString("en-IN")}\n\n` +
-      `Bank Transfer / UPI Details:\n` +
-      `🏦 Bank: ${firm.bankName} (A/C: ${firm.accountNumber}, IFSC: ${firm.ifscCode})\n` +
-      `📱 UPI ID: ${firm.upiId}\n\n` +
-      `Thank you for trusting *${firm.name}* for your financial and tax advisory needs.`;
-
-    await shareViaWhatsApp({
-      fileBlob: docBlob,
-      fileName: `${isReceipt ? "Receipt" : "Tax_Invoice"}_${docNo}.html`,
-      fileMimeType: "text/html",
-      phone: clientMobile,
-      title: `${isReceipt ? "Payment Receipt" : "Tax Invoice"} - ${docNo}`,
-      message,
-      directUrl: `${window.location.origin}/portal/billing`,
-    });
   };
 
   const activeCustomColumns = useMemo(() => {
@@ -1969,7 +1888,7 @@ export default function BillingInvoiceReceiptPage() {
                             <button
                               type="button"
                               onClick={() => handleWhatsAppShare(doc)}
-                              title="Share document details via WhatsApp"
+                              title="Share document directly via WhatsApp with attached PDF"
                               style={{
                                 padding: "5px 8px",
                                 background: "#ecfdf5",
@@ -1980,6 +1899,23 @@ export default function BillingInvoiceReceiptPage() {
                               }}
                             >
                               <FaWhatsapp size={14} />
+                            </button>
+
+                            {/* Email Share */}
+                            <button
+                              type="button"
+                              onClick={() => handleEmailShare(doc)}
+                              title="Share document directly via default Email client with attached PDF"
+                              style={{
+                                padding: "5px 8px",
+                                background: "#f0f9ff",
+                                border: "1px solid #bae6fd",
+                                borderRadius: "6px",
+                                color: "#0284c7",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <HiOutlineEnvelope size={14} />
                             </button>
 
                             {/* Archive Toggle */}
@@ -2496,9 +2432,25 @@ export default function BillingInvoiceReceiptPage() {
             type="button"
             className="btn-billing-action primary-whatsapp"
             onClick={() => handleWhatsAppShare()}
+            title="Attach PDF directly to WhatsApp without captions"
           >
             <FaWhatsapp size={16} />
             Share WhatsApp
+          </button>
+
+          <button
+            type="button"
+            className="btn-billing-action primary-email"
+            onClick={() => handleEmailShare()}
+            title="Attach PDF directly to default Email client"
+            style={{
+              background: "#0284c7",
+              color: "#ffffff",
+              border: "1px solid #0284c7",
+            }}
+          >
+            <HiOutlineEnvelope size={16} />
+            Share Email
           </button>
 
           <button

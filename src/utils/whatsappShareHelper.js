@@ -1,31 +1,177 @@
 import toast from "react-hot-toast";
 
 /**
- * Universal WhatsApp & Document Sharing Utility
- * 
- * 1. Native Web Share API (Level 1):
- *    On supported mobile browsers (Chrome Android, Safari iOS) and compatible platforms,
- *    attaches the actual document file (.pdf / .png / document) directly into WhatsApp via navigator.share({ files: [file] }).
- * 
- * 2. Instant Auto-Download + WhatsApp Web Chat Launch (Level 2 Desktop Fallback):
- *    Since WhatsApp Web protocol does not permit web browsers to attach arbitrary local files via wa.me URL query parameters,
- *    this automatically triggers the download of the document file to the user's computer,
- *    copies/pre-fills the WhatsApp message with client details & direct portal verification link,
- *    and displays clear guidance: "📄 File downloaded! Simply click 📎 in WhatsApp to attach."
+ * Universal High-Resolution Vector PDF Generator
+ * Renders HTML into a real application/pdf Blob with crisp fonts, tables, stamps, and layout.
+ */
+export async function generateVectorPdfBlob(docHtml, isReceipt = false, docTitle = "Document") {
+  const html2pdfModule = await import("html2pdf.js");
+  const html2pdf = html2pdfModule.default || html2pdfModule;
+
+  // Dedicated off-screen mount container with full in-flow dimensions
+  const mount = document.createElement("div");
+  mount.id = "skc-pdf-vector-render";
+  mount.style.position = "absolute";
+  mount.style.left = "-99999px";
+  mount.style.top = "0px";
+  mount.style.width = isReceipt ? "1122px" : "794px";
+  mount.style.backgroundColor = "#ffffff";
+  mount.style.color = "#0f172a";
+  mount.style.margin = "0";
+  mount.style.padding = "0";
+  mount.innerHTML = docHtml;
+
+  document.body.appendChild(mount);
+
+  // Wait for fonts and layouts to settle
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {}
+  }
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  const opt = {
+    margin: [6, 6, 6, 6],
+    filename: `${docTitle}.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+      windowWidth: isReceipt ? 1122 : 794,
+    },
+    jsPDF: {
+      unit: "mm",
+      format: "a4",
+      orientation: isReceipt ? "landscape" : "portrait",
+    },
+    pagebreak: {
+      mode: ["avoid-all", "css", "legacy"],
+      avoid: [
+        ".doc-summary-split",
+        ".doc-footer-grid",
+        ".doc-terms",
+        ".doc-seal-box",
+        ".doc-signatory",
+        ".doc-payment-status",
+        ".doc-amount-words",
+        "tr",
+      ],
+    },
+  };
+
+  try {
+    const pdfBlob = await html2pdf().set(opt).from(mount).outputPdf("blob");
+    return pdfBlob;
+  } finally {
+    if (document.body.contains(mount)) {
+      document.body.removeChild(mount);
+    }
+  }
+}
+
+/**
+ * Universal browser file downloader
+ */
+export function downloadBlob(blob, fileName = "Document.pdf") {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/**
+ * Universal WhatsApp Sharing Utility
+ * Attaches the file directly without captions as requested.
+ * Works seamlessly on Mobile (Android, iOS) and Windows (Edge, Chrome).
  */
 export async function shareViaWhatsApp({
   fileBlob = null,
   fileName = "Document.pdf",
   fileMimeType = "application/pdf",
   phone = "",
-  title = "SKC Office Document",
+  title = "Document",
   message = "",
   directUrl = "",
 }) {
   const phoneClean = (phone || "").replace(/\D/g, "");
   const baseFileName = fileName ? fileName.trim() : "Document.pdf";
 
-  // ── LEVEL 1: NATIVE WEB SHARE API WITH FILE ATTACHMENT ──
+  // ── LEVEL 1: NATIVE WEB SHARE API (Mobile & Windows 10/11) ──
+  // Attaches the file directly without captions
+  if (fileBlob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
+    try {
+      const fileObj = new File([fileBlob], baseFileName, {
+        type: fileMimeType || fileBlob.type || "application/pdf",
+        lastModified: Date.now(),
+      });
+
+      if (navigator.canShare({ files: [fileObj] })) {
+        // Only attach the file without text captions as requested
+        await navigator.share({
+          files: [fileObj],
+        });
+        toast.success("Document attached to WhatsApp!");
+        return true;
+      }
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        return false;
+      }
+      console.warn("Native file sharing aborted or not supported, proceeding to fallback:", err);
+    }
+  }
+
+  // ── LEVEL 2: DESKTOP FALLBACK (Auto-download PDF + Open WhatsApp Web) ──
+  if (fileBlob) {
+    downloadBlob(fileBlob, baseFileName);
+  }
+
+  // Format message only if explicitly passed (e.g. FileManagement link share)
+  let fullMessage = message || "";
+  if (directUrl && fullMessage && !fullMessage.includes(directUrl)) {
+    fullMessage += `\n\n🔗 *Direct Access / Verification Link:* ${directUrl}`;
+  }
+
+  const queryPart = fullMessage ? `?text=${encodeURIComponent(fullMessage)}` : "";
+  const waUrl = phoneClean
+    ? `https://wa.me/91${phoneClean}${queryPart}`
+    : `https://api.whatsapp.com/send${queryPart}`;
+
+  window.open(waUrl, "_blank");
+
+  if (fileBlob) {
+    toast.success("PDF downloaded! In WhatsApp, click 📎 to attach.", { duration: 5000 });
+  } else {
+    toast.success("Opening WhatsApp chat...", { duration: 4000 });
+  }
+
+  return true;
+}
+
+/**
+ * Universal Default Email Client Sharing Utility
+ * Attaches the file directly in the user's default email client (Windows Mail / Outlook / mobile email).
+ */
+export async function shareViaEmail({
+  fileBlob = null,
+  fileName = "Document.pdf",
+  fileMimeType = "application/pdf",
+  email = "",
+  title = "Document",
+  docNo = "",
+}) {
+  const baseFileName = fileName ? fileName.trim() : "Document.pdf";
+  const subject = `${title}${docNo ? ` - ${docNo}` : ""}`;
+
+  // ── LEVEL 1: NATIVE WEB SHARE API (Mobile & Windows 10/11) ──
+  // Native share sheet lets user choose default Mail / Outlook / Gmail with file attached directly
   if (fileBlob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
     try {
       const fileObj = new File([fileBlob], baseFileName, {
@@ -35,42 +181,40 @@ export async function shareViaWhatsApp({
 
       if (navigator.canShare({ files: [fileObj] })) {
         await navigator.share({
-          title,
-          text: message,
+          title: subject,
           files: [fileObj],
         });
-        toast.success("Document shared with file attached via WhatsApp!");
+        toast.success("Document attached to email!");
         return true;
       }
     } catch (err) {
       if (err && err.name === "AbortError") {
-        // User closed or dismissed the share sheet
         return false;
       }
-      console.warn("Native file sharing error, falling back to desktop download workflow:", err);
+      console.warn("Native email share aborted, using mailto fallback:", err);
     }
   }
 
-  // ── LEVEL 2: DESKTOP WORKFLOW (DIRECT WHATSAPP WEB CHAT LAUNCH) ──
-  // Format WhatsApp text with message & portal verification link
-  let fullMessage = message;
-  if (directUrl && !fullMessage.includes(directUrl)) {
-    fullMessage += `\n\n🔗 *Direct Access / Verification Link:* ${directUrl}`;
+  // ── LEVEL 2: DESKTOP MAILTO FALLBACK ──
+  // Auto-downloads the PDF file directly and launches default email client via mailto:
+  if (fileBlob) {
+    downloadBlob(fileBlob, baseFileName);
   }
 
-  const waUrl = phoneClean
-    ? `https://wa.me/91${phoneClean}?text=${encodeURIComponent(fullMessage)}`
-    : `https://api.whatsapp.com/send?text=${encodeURIComponent(fullMessage)}`;
+  const mailtoUrl = email
+    ? `mailto:${email}?subject=${encodeURIComponent(subject)}`
+    : `mailto:?subject=${encodeURIComponent(subject)}`;
 
-  window.open(waUrl, "_blank");
+  window.location.href = mailtoUrl;
 
-  toast.success("Opening WhatsApp chat with document details...", { duration: 4000 });
-
+  if (fileBlob) {
+    toast.success("PDF downloaded! Click 'Attach file' in your email client.", { duration: 5000 });
+  }
   return true;
 }
 
 /**
- * Converts printable document HTML into a standalone printable document Blob for sharing/download.
+ * Backward compatibility document HTML blob helper
  */
 export function generateDocumentBlob(htmlContent, title = "Document") {
   const fullHtml = `<!DOCTYPE html>
@@ -78,43 +222,8 @@ export function generateDocumentBlob(htmlContent, title = "Document") {
   <head>
     <meta charset="utf-8" />
     <title>${title}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-      @page { size: auto; margin: 8mm; }
-      *, *::before, *::after { box-sizing: border-box !important; }
-      body {
-        font-family: 'Inter', sans-serif;
-        background: #ffffff;
-        margin: 0;
-        padding: 16px;
-        color: #0f172a;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .doc-paper-invoice, .doc-paper-receipt {
-        border: 1.5px solid #cbd5e1;
-        border-radius: 8px;
-        padding: 24px;
-        max-width: 900px;
-        margin: 0 auto;
-        background: #ffffff;
-      }
-      .doc-table, .receipt-items-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 14px 0;
-        font-size: 11px;
-      }
-      .doc-table th, .receipt-items-table th {
-        padding: 7px 8px;
-        font-weight: 700;
-        text-align: left;
-      }
-      .doc-table td, .receipt-items-table td {
-        padding: 7px 8px;
-        border-bottom: 1px solid #e2e8f0;
-      }
+      body { font-family: sans-serif; background: #ffffff; padding: 16px; margin: 0; }
     </style>
   </head>
   <body>
