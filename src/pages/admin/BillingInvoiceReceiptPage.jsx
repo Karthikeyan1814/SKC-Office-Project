@@ -1901,7 +1901,7 @@ export default function BillingInvoiceReceiptPage() {
                   <th style={{ textAlign: "right" }}>Remaining (₹)</th>
                   <th>Payment Mode</th>
                   <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  <th style={{ textAlign: "right", minWidth: "660px" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -2066,28 +2066,30 @@ export default function BillingInvoiceReceiptPage() {
                             {isFullyPaid ? "PAID" : isPartial ? "PARTIAL" : "DUE"}
                           </span>
                         </td>
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", gap: "6px", alignItems: "center", justifyContent: "flex-end" }}>
                             {/* View Document */}
                             <button
                               type="button"
                               onClick={() => setPreviewModalDoc(doc)}
                               title="View full document preview"
                               style={{
-                                padding: "5px 9px",
+                                padding: "6px 10px",
                                 background: "#f0fdf4",
                                 border: "1px solid #bbf7d0",
                                 borderRadius: "6px",
                                 color: "#166534",
                                 cursor: "pointer",
                                 fontSize: "12px",
-                                display: "flex",
+                                display: "inline-flex",
                                 alignItems: "center",
                                 gap: "4px",
                                 fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <HiOutlineEye size={14} /> View
+                              <HiOutlineEye size={14} style={{ flexShrink: 0 }} /> View
                             </button>
 
                             {/* Download PDF */}
@@ -2096,20 +2098,22 @@ export default function BillingInvoiceReceiptPage() {
                               onClick={() => handleDownloadPdf(doc)}
                               title="Download high-resolution vector PDF"
                               style={{
-                                padding: "5px 9px",
+                                padding: "6px 10px",
                                 background: "#f5f3ff",
                                 border: "1px solid #ddd6fe",
                                 borderRadius: "6px",
                                 color: "#7c3aed",
                                 cursor: "pointer",
                                 fontSize: "12px",
-                                display: "flex",
+                                display: "inline-flex",
                                 alignItems: "center",
                                 gap: "4px",
                                 fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <HiOutlineArrowDownTray size={14} /> PDF
+                              <HiOutlineArrowDownTray size={14} style={{ flexShrink: 0 }} /> PDF
                             </button>
 
                             {/* Print Document */}
@@ -2118,20 +2122,22 @@ export default function BillingInvoiceReceiptPage() {
                               onClick={() => handlePrintDocument(doc)}
                               title="Send to printer"
                               style={{
-                                padding: "5px 9px",
+                                padding: "6px 10px",
                                 background: "#eff6ff",
                                 border: "1px solid #bfdbfe",
                                 borderRadius: "6px",
                                 color: "#1d4ed8",
                                 cursor: "pointer",
                                 fontSize: "12px",
-                                display: "flex",
+                                display: "inline-flex",
                                 alignItems: "center",
                                 gap: "4px",
                                 fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <HiOutlinePrinter size={14} /> Print
+                              <HiOutlinePrinter size={14} style={{ flexShrink: 0 }} /> Print
                             </button>
 
                             {/* Edit */}
@@ -2140,20 +2146,22 @@ export default function BillingInvoiceReceiptPage() {
                               onClick={() => handleLoadDocument(doc)}
                               title="Edit invoice / receipt details"
                               style={{
-                                padding: "5px 9px",
+                                padding: "6px 10px",
                                 background: "#f8fafc",
                                 border: "1px solid #cbd5e1",
                                 borderRadius: "6px",
                                 color: "#0f172a",
                                 cursor: "pointer",
                                 fontSize: "12px",
-                                display: "flex",
+                                display: "inline-flex",
                                 alignItems: "center",
                                 gap: "4px",
                                 fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <HiOutlinePencilSquare size={14} /> Edit
+                              <HiOutlinePencilSquare size={14} style={{ flexShrink: 0 }} /> Edit
                             </button>
 
                             {/* WhatsApp Share */}
@@ -2162,15 +2170,22 @@ export default function BillingInvoiceReceiptPage() {
                               onClick={() => handleWhatsAppShare(doc)}
                               title="Share document directly via WhatsApp with attached PDF"
                               style={{
-                                padding: "5px 8px",
+                                padding: "6px 10px",
                                 background: "#ecfdf5",
                                 border: "1px solid #a7f3d0",
                                 borderRadius: "6px",
                                 color: "#059669",
                                 cursor: "pointer",
+                                fontSize: "12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <FaWhatsapp size={14} />
+                              <FaWhatsapp size={14} style={{ flexShrink: 0 }} /> WhatsApp
                             </button>
 
                             {/* Email Share */}
@@ -2179,32 +2194,46 @@ export default function BillingInvoiceReceiptPage() {
                               onClick={() => handleEmailShare(doc)}
                               title="Share document directly via default Email client with attached PDF"
                               style={{
-                                padding: "5px 8px",
+                                padding: "6px 10px",
                                 background: "#f0f9ff",
                                 border: "1px solid #bae6fd",
                                 borderRadius: "6px",
                                 color: "#0284c7",
                                 cursor: "pointer",
+                                fontSize: "12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <HiOutlineEnvelope size={14} />
+                              <HiOutlineEnvelope size={14} style={{ flexShrink: 0 }} /> Email
                             </button>
 
                             {/* Archive Toggle */}
                             <button
                               type="button"
                               onClick={() => handleToggleArchive(doc.id)}
-                              title={doc.isArchived ? "Unarchive document" : "Archive document"}
+                              title={doc.isArchived ? "Restore document from archive" : "Archive document"}
                               style={{
-                                padding: "5px 8px",
+                                padding: "6px 10px",
                                 background: "#f1f5f9",
                                 border: "1px solid #cbd5e1",
                                 borderRadius: "6px",
-                                color: "#64748b",
+                                color: "#475569",
                                 cursor: "pointer",
+                                fontSize: "12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <HiOutlineArchiveBox size={14} />
+                              <HiOutlineArchiveBox size={14} style={{ flexShrink: 0 }} /> {doc.isArchived ? "Restore" : "Archive"}
                             </button>
 
                             {/* Delete */}
@@ -2213,15 +2242,22 @@ export default function BillingInvoiceReceiptPage() {
                               onClick={() => handleDeleteDocument(doc.id, doc.docNumber)}
                               title="Delete permanently"
                               style={{
-                                padding: "5px 7px",
+                                padding: "6px 10px",
                                 background: "#fef2f2",
                                 border: "1px solid #fecaca",
                                 borderRadius: "6px",
                                 color: "#dc2626",
                                 cursor: "pointer",
+                                fontSize: "12px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontWeight: "700",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
                               }}
                             >
-                              <HiOutlineTrash size={14} />
+                              <HiOutlineTrash size={14} style={{ flexShrink: 0 }} /> Delete
                             </button>
                           </div>
                         </td>

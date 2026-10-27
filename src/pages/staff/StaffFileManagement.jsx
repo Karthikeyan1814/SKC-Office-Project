@@ -4,6 +4,7 @@ import api from "../../api/axiosInstance";
 import toast from "react-hot-toast";
 import "../../styles/FileManagementHub.css";
 import FileUploadProgress from "../../components/FileUploadProgress";
+import ProtectedDocumentViewer from "../../components/ProtectedDocumentViewer";
 import {
   HiOutlineFolderArrowDown,
   HiOutlineMagnifyingGlass,
@@ -2492,66 +2493,21 @@ export default function StaffFileManagement() {
           </div>
         </div>
       )}
-      {/* ─── STAFF SECURE INLINE DOCUMENT VIEWER (PREVIEW ONLY) ─── */}
+      {/* ─── STAFF SECURE INLINE DOCUMENT VIEWER (CANVAS RENDERED - ZERO TOOLBAR / ZERO SAVE) ─── */}
       {viewingFile && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(15, 23, 42, 0.75)",
-          backdropFilter: "blur(6px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1200,
-          padding: "20px",
-        }}>
-          <div style={{
-            background: "#fff",
-            borderRadius: "18px",
-            maxWidth: "900px",
-            width: "100%",
-            height: "85vh",
-            display: "flex",
-            flexDirection: "column",
-            boxShadow: "0 25px 60px rgba(0,0,0,0.4)",
-            overflow: "hidden"
-          }}>
-            <div style={{
-              padding: "16px 20px",
-              background: "#1e293b",
-              color: "#fff",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ fontSize: "20px" }}>📄</span>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>{viewingFile.fileName}</h4>
-                  <span style={{ fontSize: "12px", color: "#94a3b8" }}>
-                    Protected Document Viewer (Download Restricted for Staff)
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setViewingFile(null)}
-                style={{ background: "transparent", border: "none", color: "#cbd5e1", cursor: "pointer" }}
-              >
-                <HiOutlineXMark size={24} />
-              </button>
-            </div>
-
-            <div style={{ flex: 1, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-              {viewingFile.url && (
-                <iframe
-                  src={viewingFile.url}
-                  title={viewingFile.fileName}
-                  style={{ width: "100%", height: "100%", border: "none" }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
+        <ProtectedDocumentViewer
+          file={viewingFile}
+          onClose={() => {
+            if (viewingFile?.url?.startsWith("blob:")) {
+              try {
+                URL.revokeObjectURL(viewingFile.url);
+              } catch {
+                // ignore
+              }
+            }
+            setViewingFile(null);
+          }}
+        />
       )}
 
       {/* ─── STAFF REQUEST DELETION MODAL WITH REASON ─── */}
